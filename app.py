@@ -11,7 +11,8 @@ from google import genai
 st.set_page_config(
     page_title="NextStep AI",
     page_icon="🤖",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 
@@ -25,7 +26,7 @@ client = genai.Client(
 
 
 # ============================================================
-# MODEL FALLBACK LIST
+# MODEL FALLBACK
 # ============================================================
 
 MODELS = [
@@ -37,7 +38,7 @@ MODELS = [
 
 
 # ============================================================
-# NEXTSTEP AI SYSTEM INSTRUCTION
+# SYSTEM INSTRUCTION
 # ============================================================
 
 NEXTSTEP_SYSTEM_INSTRUCTION = """
@@ -74,12 +75,12 @@ IMPORTANT BEHAVIOR:
    the possible service they may need.
 
 4. If important information is missing, ask a simple clarification
-   question instead of immediately giving a source.
+   question.
 
 5. When the request is clear enough to identify a service,
    provide practical numbered steps.
 
-6. Give steps BEFORE discussing the official source.
+6. Give steps before discussing the official source.
 
 7. Do not provide an official source for every normal question.
 
@@ -92,7 +93,7 @@ IMPORTANT BEHAVIOR:
 10. If the exact procedure depends on location, ask for the
     relevant state, city, or country when necessary.
 
-11. Use the conversation history.
+11. Use conversation history.
 
 12. Greetings and casual conversation are NOT service requests.
 
@@ -152,7 +153,7 @@ Response style:
 
 
 # ============================================================
-# OFFICIAL SERVICE SOURCES
+# OFFICIAL SERVICE LINKS
 # ============================================================
 
 SERVICE_LINKS = {
@@ -281,19 +282,22 @@ if "messages" not in st.session_state:
 
 with st.sidebar:
 
-    st.title("🤖 NextStep AI")
+    st.markdown("## 🤖 NextStep AI")
 
     st.caption("Your intelligent public-service assistant")
 
     st.divider()
 
-    if st.button("➕ New Conversation", use_container_width=True):
+    if st.button(
+        "＋  New Conversation",
+        use_container_width=True
+    ):
         st.session_state.messages = []
         st.rerun()
 
     st.divider()
 
-    st.subheader("Previous Conversations")
+    st.markdown("### 💬 Conversation")
 
     user_messages = [
         message["content"]
@@ -303,34 +307,91 @@ with st.sidebar:
 
     if not user_messages:
 
-        st.caption("No previous messages yet.")
+        st.caption("Your conversations will appear here.")
 
     else:
 
         for index, message in enumerate(user_messages[-8:]):
 
-            short_message = message[:45]
+            short_message = message[:38]
 
-            if len(message) > 45:
+            if len(message) > 38:
                 short_message += "..."
 
             st.caption(
-                f"{index + 1}. {short_message}"
+                f"**{index + 1}.** {short_message}"
             )
 
+    st.divider()
+
+    st.caption("NextStep AI")
+    st.caption("Guiding citizens to their next step.")
+
 
 # ============================================================
-# MAIN INTERFACE
+# MAIN HEADER
 # ============================================================
 
-st.title("🤖 NextStep AI")
+st.markdown("# 🤖 NextStep AI")
+
+st.markdown(
+    "### Your intelligent guide to public services"
+)
 
 st.write(
     "Tell me what you need help with. "
-    "I'll understand your request and guide you to the next step."
+    "I'll understand your request and guide you step by step."
 )
 
-st.divider()
+
+# ============================================================
+# WELCOME SCREEN
+# ============================================================
+
+if not st.session_state.messages:
+
+    st.divider()
+
+    st.subheader("How can I help you today?")
+
+    st.write(
+        "You can describe your need in your own words. "
+        "You don't have to know the exact government service name."
+    )
+
+    st.write("")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+
+        st.info(
+            "**📄 Certificates**\n\n"
+            "Birth, income, caste, residence and more."
+        )
+
+    with col2:
+
+        st.info(
+            "**🏛️ Government Services**\n\n"
+            "Schemes, grievances, licenses and applications."
+        )
+
+    with col3:
+
+        st.info(
+            "**🪪 Identity & Documents**\n\n"
+            "Aadhaar, passport and other services."
+        )
+
+    st.write("")
+
+    st.caption(
+        "💡 Example: "
+        "\"I want to apply for an income certificate in Telangana.\""
+    )
+
+    st.divider()
 
 
 # ============================================================
@@ -341,23 +402,35 @@ for message in st.session_state.messages:
 
     if message["role"] == "user":
 
-        with st.chat_message("user"):
+        with st.chat_message(
+            "user",
+            avatar="👤"
+        ):
+
             st.write(message["content"])
 
     else:
 
-        with st.chat_message("assistant"):
+        with st.chat_message(
+            "assistant",
+            avatar="🤖"
+        ):
 
             st.write(message["content"])
 
-            service_key = message.get("service_key")
+            service_key = message.get(
+                "service_key"
+            )
 
             if (
-                message.get("intent") == "service_request"
+                message.get("intent")
+                == "service_request"
                 and service_key in SERVICE_LINKS
             ):
 
-                service = SERVICE_LINKS[service_key]
+                service = SERVICE_LINKS[
+                    service_key
+                ]
 
                 st.link_button(
                     f"🔗 Open Official {service['name']} Source",
@@ -416,7 +489,6 @@ Do not add any explanation outside the JSON.
 
     last_error = None
 
-    # Try available Gemini models one by one
     for model_name in MODELS:
 
         try:
@@ -428,7 +500,6 @@ Do not add any explanation outside the JSON.
 
             raw_text = response.text.strip()
 
-            # Remove accidental code fences
             raw_text = re.sub(
                 r"^```json\s*",
                 "",
@@ -470,7 +541,6 @@ Do not add any explanation outside the JSON.
 
                 service_key = None
 
-            # Only clear service requests get a source
             if intent != "service_request":
 
                 service_key = None
@@ -478,8 +548,7 @@ Do not add any explanation outside the JSON.
             return {
                 "intent": intent,
                 "service_key": service_key,
-                "response": answer,
-                "model": model_name
+                "response": answer
             }
 
         except Exception as error:
@@ -488,12 +557,11 @@ Do not add any explanation outside the JSON.
 
             continue
 
-    # All models failed
     return {
         "intent": "error",
         "service_key": None,
         "response": (
-            "I couldn't connect to Gemini right now. "
+            "I couldn't connect to the AI service right now. "
             "Please try again in a moment."
         ),
         "error": str(last_error)
@@ -505,17 +573,16 @@ Do not add any explanation outside the JSON.
 # ============================================================
 
 user_message = st.chat_input(
-    "What public service do you need help with?"
+    "Tell me what you need help with..."
 )
 
 
 # ============================================================
-# HANDLE USER MESSAGE
+# PROCESS MESSAGE
 # ============================================================
 
 if user_message:
 
-    # Save user message
     st.session_state.messages.append(
         {
             "role": "user",
@@ -523,13 +590,17 @@ if user_message:
         }
     )
 
-    # Show user message
-    with st.chat_message("user"):
+    with st.chat_message(
+        "user",
+        avatar="👤"
+    ):
 
         st.write(user_message)
 
-    # Generate AI response
-    with st.chat_message("assistant"):
+    with st.chat_message(
+        "assistant",
+        avatar="🤖"
+    ):
 
         with st.spinner(
             "NextStep AI is thinking..."
@@ -545,19 +616,14 @@ if user_message:
 
         service_key = result["service_key"]
 
-        # ----------------------------------------------------
-        # ERROR
-        # ----------------------------------------------------
-
         if intent == "error":
 
             st.error(answer)
 
-            # Show technical information only while debugging
             if "error" in result:
 
                 with st.expander(
-                    "Technical error details"
+                    "Technical details"
                 ):
 
                     st.code(
@@ -566,15 +632,7 @@ if user_message:
 
         else:
 
-            # ------------------------------------------------
-            # NORMAL AI RESPONSE
-            # ------------------------------------------------
-
             st.write(answer)
-
-            # ------------------------------------------------
-            # OFFICIAL SOURCE
-            # ------------------------------------------------
 
             if (
                 intent == "service_request"
@@ -595,7 +653,6 @@ if user_message:
                     f"Official source: {service['label']}"
                 )
 
-    # Save assistant message
     st.session_state.messages.append(
         {
             "role": "assistant",
