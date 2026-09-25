@@ -33,8 +33,7 @@ You are NextStep AI, an intelligent public-service assistant.
 Your purpose is to help citizens understand and navigate public
 services and applications.
 
-You can help with many types of public services, including but not
-limited to:
+You can help with many types of public services, including:
 
 - Birth certificates
 - Death certificates
@@ -77,11 +76,11 @@ IMPORTANT BEHAVIOR:
 8. Never invent government rules, fees, websites, deadlines,
    eligibility requirements, or documents.
 
-9. If the exact procedure depends on the citizen's location,
-   ask for the relevant state, city, or country.
+9. If the exact procedure depends on location, ask for the
+   relevant state, city, or country.
 
-10. If you do not have enough reliable information, clearly say
-    what needs to be verified.
+10. If you do not have enough reliable information, clearly
+    say what needs to be verified.
 
 11. Do not restrict yourself to a fixed list of services.
 
@@ -89,7 +88,7 @@ IMPORTANT BEHAVIOR:
     politely explain that your main purpose is helping with
     public services.
 
-CONVERSATION STYLE:
+STYLE:
 
 - Friendly
 - Clear
@@ -97,8 +96,7 @@ CONVERSATION STYLE:
 - Easy for ordinary citizens to understand
 - Helpful without overwhelming the citizen
 
-Most importantly, behave like an intelligent assistant that
-guides the citizen toward their NEXT STEP.
+Most importantly, guide the citizen toward their NEXT STEP.
 """
 
 # ============================================================
@@ -110,27 +108,22 @@ OFFICIAL_SOURCES = {
         "url": "https://ts.meeseva.telangana.gov.in/",
         "description": "Telangana government citizen services and applications."
     },
-
     "Telangana State Services": {
         "url": "https://www.telangana.gov.in/services/state-services/",
         "description": "Official Telangana state government services."
     },
-
     "Telangana Public Utility Forms": {
         "url": "https://www.telangana.gov.in/services/public-utility-forms/",
         "description": "Official Telangana government application forms."
     },
-
     "India Government Services": {
         "url": "https://www.india.gov.in/services",
         "description": "National Portal of India government services."
     },
-
     "National Government Services Portal": {
         "url": "https://services.india.gov.in/",
         "description": "Government of India services directory."
     },
-
     "Telangana State Portal": {
         "url": "https://www.telangana.gov.in/",
         "description": "Official Telangana government portal."
@@ -155,10 +148,6 @@ if "current_conversation" not in st.session_state:
 # ============================================================
 
 def get_source_for_message(message):
-    """
-    Select an appropriate official government portal based
-    on the citizen's request.
-    """
 
     text = message.lower()
 
@@ -201,18 +190,18 @@ def get_source_for_message(message):
 
 
 def ask_nextstep_ai(user_message, conversation_history):
-    """
-    Send the user's message and conversation history to Gemini.
-    """
 
     contents = []
 
     for message in conversation_history:
+
         contents.append(
             types.Content(
                 role=message["role"],
                 parts=[
-                    types.Part(text=message["content"])
+                    types.Part(
+                        text=message["content"]
+                    )
                 ]
             )
         )
@@ -221,7 +210,9 @@ def ask_nextstep_ai(user_message, conversation_history):
         types.Content(
             role="user",
             parts=[
-                types.Part(text=user_message)
+                types.Part(
+                    text=user_message
+                )
             ]
         )
     )
@@ -236,7 +227,9 @@ def ask_nextstep_ai(user_message, conversation_history):
     last_error = None
 
     for model in models_to_try:
+
         try:
+
             response = client.models.generate_content(
                 model=model,
                 contents=contents,
@@ -250,19 +243,17 @@ def ask_nextstep_ai(user_message, conversation_history):
                 return response.text
 
         except Exception as error:
+
             last_error = error
 
     return (
-        "I'm sorry, I'm temporarily unable to connect to the AI service. "
+        "I'm temporarily unable to connect to the AI service. "
         "Please try again in a moment.\n\n"
         f"Technical information: {last_error}"
     )
 
 
 def save_current_conversation():
-    """
-    Save the current conversation into session history.
-    """
 
     if not st.session_state.messages:
         return
@@ -275,136 +266,12 @@ def save_current_conversation():
 
 
 # ============================================================
-# CUSTOM CSS
-# ============================================================
-
-st.markdown(
-    """
-    <style>
-
-    /* Main page */
-
-    .main {
-        padding-top: 1rem;
-    }
-
-    /* Header */
-
-    .nextstep-header {
-        text-align: center;
-        padding: 30px 20px 25px 20px;
-        border-radius: 16px;
-        margin-bottom: 25px;
-        background: #f8fafc;
-    }
-
-    .nextstep-logo {
-        font-size: 42px;
-        font-weight: 800;
-        letter-spacing: -1px;
-        margin-bottom: 5px;
-    }
-
-    .nextstep-tagline {
-        font-size: 18px;
-        color: #475569;
-        margin-top: 5px;
-    }
-
-    /* Welcome card */
-
-    .welcome-card {
-        background: #f8fafc;
-        padding: 30px;
-        border-radius: 14px;
-        text-align: center;
-        margin-top: 20px;
-        margin-bottom: 20px;
-    }
-
-    .welcome-card h2 {
-        font-size: 24px;
-        margin-bottom: 12px;
-    }
-
-    .welcome-card p {
-        font-size: 18px;
-        line-height: 1.6;
-    }
-
-    .welcome-small {
-        font-size: 16px !important;
-        color: #475569;
-    }
-
-    /* Source card */
-
-    .source-card {
-        padding: 18px;
-        border-radius: 12px;
-        background: #f8fafc;
-        margin-top: 20px;
-    }
-
-    .source-title {
-        font-size: 18px;
-        font-weight: 700;
-        margin-bottom: 5px;
-    }
-
-    .source-description {
-        color: #475569;
-        margin-bottom: 12px;
-    }
-
-    /* Sidebar */
-
-    .sidebar-title {
-        font-size: 22px;
-        font-weight: 700;
-        margin-bottom: 15px;
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# ============================================================
-# HEADER
-# ============================================================
-
-st.markdown(
-    """
-    <div class="nextstep-header">
-
-        <div class="nextstep-logo">
-            🤖 NextStep AI
-        </div>
-
-        <div class="nextstep-tagline">
-            Your intelligent guide to public services
-        </div>
-
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-# ============================================================
 # SIDEBAR
 # ============================================================
 
 with st.sidebar:
 
-    st.markdown(
-        """
-        <div class="sidebar-title">
-            💬 Conversations
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    st.title("💬 Conversations")
 
     if st.button(
         "➕ New Conversation",
@@ -431,6 +298,7 @@ with st.sidebar:
             col1, col2 = st.columns([4, 1])
 
             with col1:
+
                 if st.button(
                     conversation_name,
                     key=f"open_{conversation_name}",
@@ -479,21 +347,10 @@ with st.sidebar:
 
     st.divider()
 
-    st.markdown(
-        """
-        <div class="source-card">
+    st.subheader("🌐 Official Sources")
 
-            <div class="source-title">
-                🌐 Official Sources
-            </div>
-
-            <div class="source-description">
-                Access government portals directly.
-            </div>
-
-        </div>
-        """,
-        unsafe_allow_html=True
+    st.caption(
+        "Access government portals directly."
     )
 
     for source_name, source_data in OFFICIAL_SOURCES.items():
@@ -505,42 +362,45 @@ with st.sidebar:
         )
 
 # ============================================================
+# MAIN HEADER
+# ============================================================
+
+st.title("🤖 NextStep AI")
+
+st.write(
+    "Your intelligent guide to public services."
+)
+
+st.divider()
+
+# ============================================================
 # WELCOME SCREEN
 # ============================================================
 
 if not st.session_state.messages:
 
-    st.markdown(
-        """
-        <div class="welcome-card">
+    st.subheader("👋 What do you need help with?")
 
-            <h2>
-                👋 What do you need help with?
-            </h2>
-
-            <p>
-                Tell me what you need in your own words.
-            </p>
-
-            <p class="welcome-small">
-                You don't need to know the official service name.
-                I'll help you find the right next step.
-            </p>
-
-        </div>
-        """,
-        unsafe_allow_html=True
+    st.write(
+        "Tell me what you need in your own words."
     )
 
+    st.caption(
+        "You don't need to know the official service name. "
+        "I'll help you find the right next step."
+    )
+
+    st.divider()
+
 # ============================================================
-# DISPLAY PREVIOUS MESSAGES
+# DISPLAY CONVERSATION
 # ============================================================
 
 for message in st.session_state.messages:
 
     with st.chat_message(message["role"]):
 
-        st.markdown(message["content"])
+        st.write(message["content"])
 
 # ============================================================
 # CHAT INPUT
@@ -552,12 +412,13 @@ user_input = st.chat_input(
 
 if user_input:
 
-    # Display user message
+    # --------------------------------------------------------
+    # USER MESSAGE
+    # --------------------------------------------------------
 
     with st.chat_message("user"):
-        st.markdown(user_input)
 
-    # Add user message to history
+        st.write(user_input)
 
     st.session_state.messages.append(
         {
@@ -566,20 +427,22 @@ if user_input:
         }
     )
 
-    # Get AI response
+    # --------------------------------------------------------
+    # AI RESPONSE
+    # --------------------------------------------------------
 
     with st.chat_message("assistant"):
 
-        with st.spinner("NextStep AI is thinking..."):
+        with st.spinner(
+            "NextStep AI is thinking..."
+        ):
 
             ai_response = ask_nextstep_ai(
                 user_input,
                 st.session_state.messages[:-1]
             )
 
-        st.markdown(ai_response)
-
-    # Add AI response
+        st.write(ai_response)
 
     st.session_state.messages.append(
         {
@@ -588,39 +451,29 @@ if user_input:
         }
     )
 
-    # Show relevant official source
+    # --------------------------------------------------------
+    # OFFICIAL SOURCE
+    # --------------------------------------------------------
 
     source = get_source_for_message(user_input)
 
-    st.markdown(
-        f"""
-        <div class="source-card">
-
-            <div class="source-title">
-                🌐 Official source
-            </div>
-
-            <div class="source-description">
-                {source["description"]}
-            </div>
-
-        </div>
-        """,
-        unsafe_allow_html=True
+    st.info(
+        f"🌐 Official source: {source['description']}"
     )
 
     st.link_button(
-        f"Open {list(
-            OFFICIAL_SOURCES.keys()
-        )[list(
-            OFFICIAL_SOURCES.values()
-        ).index(source)]}",
+        "Open Official Government Portal",
         source["url"]
     )
 
-    # Save conversation
+    # --------------------------------------------------------
+    # SAVE CONVERSATION
+    # --------------------------------------------------------
 
-    if st.session_state.current_conversation == "New Conversation":
+    if (
+        st.session_state.current_conversation
+        == "New Conversation"
+    ):
 
         title = user_input[:35]
 
