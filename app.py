@@ -278,89 +278,8 @@ if "messages" not in st.session_state:
 if "pending_prompt" not in st.session_state:
     st.session_state.pending_prompt = None
 
-
-# ============================================================
-# SAFE VISUAL STYLING
-# ============================================================
-
-st.markdown(
-    """
-    <style>
-
-    .stApp {
-        background-color: #f7f9fc;
-    }
-
-    section[data-testid="stSidebar"] {
-        background-color: #ffffff;
-        border-right: 1px solid #e6eaf0;
-    }
-
-    .block-container {
-        max-width: 1150px;
-        padding-top: 1.5rem;
-        padding-bottom: 4rem;
-    }
-
-    .nextstep-header {
-        padding: 10px 0 5px 0;
-    }
-
-    .nextstep-title {
-        font-size: 32px;
-        font-weight: 750;
-        color: #172033;
-    }
-
-    .nextstep-subtitle {
-        font-size: 14px;
-        color: #6b7585;
-        margin-top: 3px;
-    }
-
-    .hero-box {
-        background-color: #eef4ff;
-        border: 1px solid #dce6f7;
-        border-radius: 18px;
-        padding: 25px;
-        margin: 18px 0 25px 0;
-    }
-
-    .hero-title {
-        font-size: 27px;
-        font-weight: 700;
-        color: #172033;
-    }
-
-    .hero-text {
-        color: #5f6b7d;
-        font-size: 15px;
-        line-height: 1.6;
-        margin-top: 7px;
-    }
-
-    .stButton > button {
-        border-radius: 12px;
-        min-height: 45px;
-        font-weight: 600;
-    }
-
-    .stLinkButton > a {
-        border-radius: 12px;
-        font-weight: 650;
-    }
-
-    .voice-label {
-        font-size: 13px;
-        font-weight: 600;
-        color: #5f6b7d;
-        margin-bottom: 4px;
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+if "processed_audio_id" not in st.session_state:
+    st.session_state.processed_audio_id = None
 
 
 # ============================================================
@@ -369,9 +288,7 @@ st.markdown(
 
 with st.sidebar:
 
-    st.markdown(
-        "## 🤖 NextStep AI"
-    )
+    st.title("🤖 NextStep AI")
 
     st.caption(
         "Your intelligent public-service assistant"
@@ -386,6 +303,8 @@ with st.sidebar:
 
         st.session_state.messages = []
         st.session_state.pending_prompt = None
+        st.session_state.processed_audio_id = None
+
         st.rerun()
 
     st.divider()
@@ -427,24 +346,13 @@ with st.sidebar:
 
 
 # ============================================================
-# TOP BRANDING
+# MAIN HEADER
 # ============================================================
 
-st.markdown(
-    """
-    <div class="nextstep-header">
+st.title("✦ NextStep AI")
 
-        <div class="nextstep-title">
-            ✦ NextStep AI
-        </div>
-
-        <div class="nextstep-subtitle">
-            Intelligent guidance for public services
-        </div>
-
-    </div>
-    """,
-    unsafe_allow_html=True
+st.caption(
+    "Intelligent guidance for public services"
 )
 
 
@@ -454,24 +362,12 @@ st.markdown(
 
 if not st.session_state.messages:
 
-    st.markdown(
-        """
-        <div class="hero-box">
-
-            <div class="hero-title">
-                How can I help you today?
-            </div>
-
-            <div class="hero-text">
-                Tell me what you need in your own words.
-                You don't need to know the exact government
-                service name. I'll understand your request
-                and guide you toward the next step.
-            </div>
-
-        </div>
-        """,
-        unsafe_allow_html=True
+    st.info(
+        "### How can I help you today?\n\n"
+        "Tell me what you need in your own words. "
+        "You don't need to know the exact government "
+        "service name. I'll understand your request "
+        "and guide you toward the next step."
     )
 
     st.subheader("✨ Suggested prompts")
@@ -763,7 +659,7 @@ Do not add any explanation outside the JSON.
 
 
 # ============================================================
-# VOICE TRANSCRIPTION FUNCTION
+# VOICE TRANSCRIPTION
 # ============================================================
 
 def transcribe_voice(audio_file):
@@ -797,11 +693,13 @@ def transcribe_voice(audio_file):
                     Transcribe exactly what the citizen said.
 
                     Return ONLY the spoken text.
-                    Do not add explanations.
-                    Do not summarize.
+
                     Do not answer the citizen.
-                    If the audio is unclear, return:
-                    AUDIO_UNCLEAR
+                    Do not summarize.
+                    Do not add explanations.
+
+                    If the audio cannot be understood,
+                    return AUDIO_UNCLEAR.
                     """
                 ]
             )
@@ -953,8 +851,8 @@ if st.session_state.pending_prompt:
 
 st.divider()
 
-input_col, voice_col = st.columns(
-    [7, 1],
+text_col, voice_col = st.columns(
+    [8, 1],
     vertical_alignment="bottom"
 )
 
@@ -963,10 +861,10 @@ input_col, voice_col = st.columns(
 # TEXT INPUT
 # ============================================================
 
-with input_col:
+with text_col:
 
     text_message = st.text_input(
-        "💬 Message",
+        "Message",
         placeholder="Tell me what you need help with...",
         label_visibility="collapsed",
         key="text_message"
@@ -982,12 +880,12 @@ with voice_col:
     audio_file = st.audio_input(
         "🎙️",
         key="voice_input",
-        help="Tap to record your request"
+        help="Record your request"
     )
 
 
 # ============================================================
-# SEND TEXT MESSAGE
+# TEXT MESSAGE
 # ============================================================
 
 if text_message:
@@ -1000,18 +898,13 @@ if text_message:
 
 
 # ============================================================
-# PROCESS VOICE MESSAGE
+# VOICE MESSAGE
 # ============================================================
 
 if audio_file is not None:
 
-    if "processed_audio_id" not in st.session_state:
-
-        st.session_state.processed_audio_id = None
-
-    current_audio_id = (
-        getattr(audio_file, "file_id", None)
-        or hash(audio_file.getvalue())
+    current_audio_id = hash(
+        audio_file.getvalue()
     )
 
     if (
@@ -1019,7 +912,9 @@ if audio_file is not None:
         != current_audio_id
     ):
 
-        st.session_state.processed_audio_id = current_audio_id
+        st.session_state.processed_audio_id = (
+            current_audio_id
+        )
 
         with st.spinner(
             "🎙️ Understanding your voice..."
