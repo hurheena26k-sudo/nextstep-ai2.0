@@ -75,9 +75,7 @@ Respond as NextStep AI and guide the citizen toward their next step.
 
     except Exception:
         return "I'm temporarily unable to connect to the AI service. Please try again."
-      st.write(
-    ask_nextstep_ai("I need an income certificate.")
-)
+
 # =========================================================
 # SESSION STATE
 # =========================================================
@@ -235,10 +233,7 @@ if user_message:
 
 
     # Temporary response
-    response = (
-        "I'm understanding your request and "
-        "figuring out the right next step..."
-    )
+    response = ask_nextstep_ai(user_message)
 
 
     # Display AI response
