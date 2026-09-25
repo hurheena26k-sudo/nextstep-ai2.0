@@ -288,7 +288,7 @@ with st.sidebar:
 
     st.divider()
 
-    if st.button("🔄 Start over / Clear Chat", use_container_width=True):
+    if st.button("🔄 Clear Chat / New Session", use_container_width=True):
         st.session_state.chat_history = []
         st.session_state.pending_prompt = None
         st.session_state.voice_preview = None
@@ -300,6 +300,10 @@ with st.sidebar:
             "next_action_ready": False,
             "final_submission_completed": False
         }
+        # Explicitly purge any dynamically created widget state keys
+        for k in list(st.session_state.keys()):
+            if k.startswith("chk_") or k.startswith("edited_voice_"):
+                del st.session_state[k]
         st.rerun()
 
     st.caption("NextStep AI • v2.1 Production Edition")
@@ -564,22 +568,26 @@ if audio_val is not None:
 
 # Display Voice Preview / Edit Box if present
 if st.session_state.voice_preview:
-    st.info("🎙️ **Voice Recognized!** Review or edit your transcription before submitting:")
+    st.markdown('<div style="background:#1e293b; border:1px solid #38bdf8; border-radius:10px; padding:1rem; margin-bottom:1rem;">', unsafe_allow_html=True)
+    st.markdown("#### 🎙️ Voice Recognized — Review & Edit Transcript")
+    st.caption("Status: **Transcript Ready**. You can review or edit what was heard before routing:")
+
     v_col1, v_col2, v_col3 = st.columns([4, 1, 1])
     with v_col1:
-        edited_preview = st.text_input("Transcription Preview", value=st.session_state.voice_preview, key="edited_voice_txt")
+        edited_preview = st.text_input("Transcribed Speech", value=st.session_state.voice_preview, key="edited_voice_txt", help="Edit transcription if speech-to-text misunderstood any words.")
     with v_col2:
-        if st.button("🚀 Submit Voice Prompt", use_container_width=True):
+        if st.button("🚀 Confirm & Route", use_container_width=True):
             if edited_preview.strip():
                 st.session_state.pending_prompt = edited_preview.strip()
                 st.session_state.voice_preview = None
                 st.rerun()
             else:
-                st.warning("Cannot submit empty voice prompt.")
+                st.warning("Cannot submit empty voice transcript.")
     with v_col3:
-        if st.button("❌ Clear Voice Prompt", use_container_width=True):
+        if st.button("❌ Cancel Voice", use_container_width=True):
             st.session_state.voice_preview = None
             st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 chat_prompt = st.chat_input("Describe your situation in natural language...")
 

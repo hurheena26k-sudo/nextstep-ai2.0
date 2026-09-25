@@ -5,7 +5,7 @@ import sys
 # Ensure root directory is in python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from services_data import search_service_by_query, SERVICES_DATABASE
+from services_data import search_service_by_query, normalize_query_text, SERVICES_DATABASE
 from agent import generate_fallback_response, execute_agent_workflow, transcribe_audio_bytes
 
 
@@ -24,6 +24,11 @@ class TestRoutingAndChat(unittest.TestCase):
             ("What documents are required for a caste certificate?", "caste_income_certificate"),
             ("How do I apply for an Aadhaar update?", "aadhaar"),
             ("I want to apply for income tax", "itr_filing"),
+            ("I need my birth certificate", "birth_certificate"),
+            ("where can I get birth certificate", "birth_certificate"),
+            ("renew my driving licence", "driving_licence"),
+            ("file my ITR", "itr_filing"),
+            ("income tax return", "itr_filing"),
         ]
 
         for query, expected_id in test_cases:
@@ -34,6 +39,18 @@ class TestRoutingAndChat(unittest.TestCase):
                 expected_id,
                 f"Query '{query}' expected service '{expected_id}' but got '{data['service_id']}'"
             )
+
+    def test_stt_and_spelling_normalization(self):
+        """Test speech recognition and spelling error normalization."""
+        self.assertEqual(normalize_query_text("I want my aadhar card"), "i want my aadhaar card")
+        self.assertEqual(normalize_query_text("renew my driving license"), "renew my driving licence")
+        self.assertEqual(normalize_query_text("file incometax return"), "file income tax return")
+        self.assertEqual(normalize_query_text("get meesava cert"), "get meeseva cert")
+
+    def test_incidental_aadhaar_mention(self):
+        """Test that mentioning Aadhaar as a document for another service does NOT route to Aadhaar."""
+        res = generate_fallback_response("I want to renew my driving licence, I have my aadhaar card")
+        self.assertEqual(res["data"]["service_id"], "driving_licence")
 
     def test_unrelated_query_asks_clarification(self):
         """Test that unknown/unrelated queries prompt clarification instead of guessing Aadhaar."""
@@ -55,14 +72,14 @@ class TestRoutingAndChat(unittest.TestCase):
         history.append({"role": "user", "content": q_a})
         history.append({"role": "assistant", "card_data": res_a["data"], "content": res_a["data"]["situation_understood"]})
 
-        # Question B
+        # Question B - new distinct request
         q_b = "How do I pay property tax?"
         res_b = generate_fallback_response(q_b, history=history)
         self.assertEqual(res_b["data"]["service_id"], "property_tax")
         history.append({"role": "user", "content": q_b})
         history.append({"role": "assistant", "card_data": res_b["data"], "content": res_b["data"]["situation_understood"]})
 
-        # Question C
+        # Question C - new distinct request
         q_c = "How can I renew my driving licence?"
         res_c = generate_fallback_response(q_c, history=history)
         self.assertEqual(res_c["data"]["service_id"], "driving_licence")

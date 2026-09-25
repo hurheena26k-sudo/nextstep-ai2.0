@@ -378,34 +378,88 @@ def get_verified_service_by_key(service_key: str):
 
 import re
 
+def normalize_query_text(text: str) -> str:
+    """Normalizes speech recognition errors, spelling variants, and punctuation."""
+    if not text:
+        return ""
+    t = text.lower().strip()
+    # Punctuation cleaning
+    t = re.sub(r'[^\w\s]', ' ', t)
+
+    # Common speech-to-text and spelling normalizations
+    replacements = {
+        r'\blicence\b': 'license',
+        r'\baadhar\b': 'aadhaar',
+        r'\badhar\b': 'aadhaar',
+        r'\bpancard\b': 'pan card',
+        r'\bincometax\b': 'income tax',
+        r'\bprop tax\b': 'property tax',
+        r'\bhouse tax\b': 'property tax',
+        r'\bmeesava\b': 'meeseva',
+        r'\bmeesewa\b': 'meeseva',
+        r'\bbirthcert\b': 'birth certificate',
+        r'\bdeathcert\b': 'death certificate',
+        r'\bdriving license\b': 'driving licence',
+        r'\blearner license\b': 'driving licence',
+        r'\blearners licence\b': 'driving licence',
+    }
+    for pat, rep in replacements.items():
+        t = re.sub(pat, rep, t)
+    return re.sub(r'\s+', ' ', t).strip()
+
+
 def search_service_by_query(query: str):
-    """Matches query text against keywords in the local knowledge base using word boundaries and scoring."""
+    """Matches query text against knowledge base using multi-factor intent scoring."""
     if not query:
         return None
-    query_lower = query.lower().strip()
 
-    best_service = None
-    best_score = 0
+    raw_lower = query.lower()
+    norm_q = normalize_query_text(query)
 
-    for key, service in SERVICES_DATABASE.items():
-        for kw in service["keywords"]:
-            kw_lower = kw.lower()
-            # Escape regex characters
-            pattern = r'\b' + re.escape(kw_lower) + r'\b'
-            if re.search(pattern, query_lower):
-                # Score based on length of matched keyword (longer keywords are more specific)
-                score = len(kw_lower) * 10
-                # Exact title or id match bonus
-                if kw_lower == key or kw_lower == service["title"].lower():
-                    score += 50
-                if score > best_score:
-                    best_score = score
-                    best_service = service
-            elif len(kw_lower) > 3 and kw_lower in query_lower:
-                # Substring match for longer multi-word phrases
-                score = len(kw_lower) * 5
-                if score > best_score:
-                    best_score = score
-                    best_service = service
+    scores = {}
 
-    return best_service
+    for s_id, service in SERVICES_DATABASE.items():
+        score = 0
+        keywords = service.get("keywords", [])
+        title_lower = service["title"].lower()
+
+        # Direct primary entity matches
+        if s_id == "birth_certificate" and any(k in norm_q for k in ["birth certificate", "birth cert", "birth registration", "born certificate", "newborn"]):
+            score += 100
+        elif s_id == "driving_licence" and any(k in norm_q for k in ["driving licence", "driving license", "llr", "dl renewal", "rto", "driving permit"]):
+            score += 100
+        elif s_id == "itr_filing" and any(k in norm_q for k in ["income tax", "itr", "itr filing", "tax return", "form 16", "26as", "tax refund"]):
+            score += 100
+        elif s_id == "property_tax" and any(k in norm_q for k in ["property tax", "house tax", "ghmc tax", "cdma tax", "ptin"]):
+            score += 100
+        elif s_id == "passport" and any(k in norm_q for k in ["passport", "tatkaal passport", "psk", "pso"]):
+            score += 100
+        elif s_id == "pan" and any(k in norm_q for k in ["pan card", "e pan", "instant pan", "nsdl pan", "protean pan"]) and "income tax" not in norm_q:
+            score += 100
+        elif s_id == "voter_id" and any(k in norm_q for k in ["voter id", "voter card", "election card", "e epic", "nvsp", "form 6", "form 8"]):
+            score += 100
+        elif s_id == "caste_income_certificate" and any(k in norm_q for k in ["income certificate", "caste certificate", "residence certificate", "nativity certificate", "meeseva"]):
+            score += 100
+        elif s_id == "aadhaar" and any(k in norm_q for k in ["aadhaar", "uidai", "myaadhaar", "e aadhaar"]):
+            # Check if aadhaar is just mentioned incidentally as an ID document in another request
+            if any(other_service_kw in norm_q for other_service_kw in ["birth certificate", "driving licence", "property tax", "income tax", "passport", "voter id", "udyam"]):
+                score += 10 # Low incidental score
+            else:
+                score += 100
+
+        # General keyword matching scoring
+        for kw in keywords:
+            norm_kw = normalize_query_text(kw)
+            pattern = r'\b' + re.escape(norm_kw) + r'\b'
+            if re.search(pattern, norm_q):
+                score += len(norm_kw) * 5
+
+        scores[s_id] = score
+
+    # Find highest scoring service
+    sorted_services = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    if sorted_services and sorted_services[0][1] >= 30:
+        best_id = sorted_services[0][0]
+        return SERVICES_DATABASE[best_id]
+
+    return None
