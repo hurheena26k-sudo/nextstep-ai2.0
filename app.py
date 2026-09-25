@@ -34,11 +34,12 @@ if "current_conversation" not in st.session_state:
 with st.sidebar:
 
     st.markdown("## 🧭 NextStep AI")
+
     st.caption("Your intelligent guide to public services")
 
     st.divider()
 
-    # New conversation button
+    # New conversation
     if st.button(
         "＋ New Conversation",
         use_container_width=True
@@ -112,23 +113,25 @@ with st.sidebar:
 st.markdown(
     """
     <div style="
-        text-align:center;
-        padding-top:25px;
-        padding-bottom:10px;
+        text-align: center;
+        padding-top: 25px;
+        padding-bottom: 10px;
     ">
 
-        <div style="font-size:65px;">🧭</div>
+        <div style="font-size: 65px;">
+            🧭
+        </div>
 
         <h1 style="
-            font-size:42px;
-            margin-bottom:5px;
+            font-size: 42px;
+            margin-bottom: 5px;
         ">
             NextStep AI
         </h1>
 
         <p style="
-            font-size:19px;
-            color:#666;
+            font-size: 19px;
+            color: #666666;
         ">
             Your intelligent guide to public services
         </p>
@@ -150,23 +153,23 @@ if not st.session_state.messages:
     st.markdown(
         """
         <div style="
-            text-align:center;
-            padding:35px 20px 20px 20px;
+            text-align: center;
+            padding: 35px 20px 20px 20px;
         ">
 
             <h2>
                 👋 Welcome to NextStep AI
             </h2>
 
-            <p style="font-size:18px;">
+            <p style="font-size: 18px;">
                 I can help you understand public services,
                 certificates, applications, government schemes,
                 licenses, permits, and more.
             </p>
 
             <p style="
-                font-size:16px;
-                color:#666;
+                font-size: 16px;
+                color: #666666;
             ">
                 You don't need to know the exact service name.
                 Just tell me what you need.
@@ -209,10 +212,7 @@ user_message = st.chat_input(
 
 if user_message:
 
-    # ---------------------------------------------
-    # Save user message
-    # ---------------------------------------------
-
+    # Save user's message
     st.session_state.messages.append(
         {
             "role": "user",
@@ -220,19 +220,11 @@ if user_message:
         }
     )
 
-    # ---------------------------------------------
-    # Display user message
-    # ---------------------------------------------
-
+    # Display user's message
     with st.chat_message("user"):
-
         st.write(user_message)
 
-
-    # ---------------------------------------------
     # Temporary AI response
-    # ---------------------------------------------
-
     with st.chat_message("assistant"):
 
         response = (
@@ -242,11 +234,7 @@ if user_message:
 
         st.write(response)
 
-
-    # ---------------------------------------------
     # Save AI response
-    # ---------------------------------------------
-
     st.session_state.messages.append(
         {
             "role": "assistant",
@@ -254,21 +242,26 @@ if user_message:
         }
     )
 
-
-    # ---------------------------------------------
     # Create conversation name
-    # ---------------------------------------------
-
-    conversation_name = user_message[:40]
+    conversation_name = user_message[:40].strip()
 
     if not conversation_name:
         conversation_name = "New Conversation"
 
+    # Avoid overwriting an existing conversation
+    original_name = conversation_name
+    counter = 2
 
-    # ---------------------------------------------
+    while (
+        conversation_name in st.session_state.conversations
+        and conversation_name != st.session_state.current_conversation
+    ):
+        conversation_name = f"{original_name} ({counter})"
+        counter += 1
+
     # Save conversation
-    # ---------------------------------------------
-
     st.session_state.conversations[
         conversation_name
     ] = st.session_state.messages.copy()
+
+    st.session_state.current_conversation = conversation_name
