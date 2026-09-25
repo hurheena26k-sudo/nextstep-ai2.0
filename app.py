@@ -2,7 +2,7 @@ import streamlit as st
 
 
 # =========================================================
-# PAGE CONFIGURATION
+# PAGE SETTINGS
 # =========================================================
 
 st.set_page_config(
@@ -33,51 +33,46 @@ if "current_conversation" not in st.session_state:
 
 with st.sidebar:
 
-    st.markdown("## 🧭 NextStep AI")
+    st.title("🧭 NextStep AI")
+
     st.caption("Your intelligent guide to public services")
 
     st.divider()
 
-    if st.button(
-        "＋ New Conversation",
-        use_container_width=True
-    ):
+    if st.button("＋ New Conversation", use_container_width=True):
+
         st.session_state.messages = []
         st.session_state.current_conversation = "New Conversation"
+
         st.rerun()
 
     st.divider()
 
-    st.markdown("### 💬 Previous Conversations")
+    st.subheader("💬 Previous Conversations")
 
     if not st.session_state.conversations:
+
         st.caption("No previous conversations yet.")
 
     else:
 
-        for conversation_name in list(
-            st.session_state.conversations.keys()
-        ):
+        for name in list(st.session_state.conversations.keys()):
 
             col1, col2 = st.columns([4, 1])
 
             with col1:
 
                 if st.button(
-                    conversation_name,
-                    key=f"open_{conversation_name}",
+                    name,
+                    key=f"open_{name}",
                     use_container_width=True
                 ):
 
                     st.session_state.messages = (
-                        st.session_state.conversations[
-                            conversation_name
-                        ].copy()
+                        st.session_state.conversations[name].copy()
                     )
 
-                    st.session_state.current_conversation = (
-                        conversation_name
-                    )
+                    st.session_state.current_conversation = name
 
                     st.rerun()
 
@@ -85,12 +80,10 @@ with st.sidebar:
 
                 if st.button(
                     "🗑️",
-                    key=f"delete_{conversation_name}"
+                    key=f"delete_{name}"
                 ):
 
-                    del st.session_state.conversations[
-                        conversation_name
-                    ]
+                    del st.session_state.conversations[name]
 
                     st.session_state.messages = []
 
@@ -105,36 +98,9 @@ with st.sidebar:
 # MAIN HEADER
 # =========================================================
 
-st.markdown(
-    """
-    <div style="
-        text-align: center;
-        padding-top: 25px;
-        padding-bottom: 10px;
-    ">
+st.title("🧭 NextStep AI")
 
-        <div style="font-size: 65px;">
-            🧭
-        </div>
-
-        <h1 style="
-            font-size: 42px;
-            margin-bottom: 5px;
-        ">
-            NextStep AI
-        </h1>
-
-        <p style="
-            font-size: 19px;
-            color: #666666;
-        ">
-            Your intelligent guide to public services
-        </p>
-
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+st.subheader("Your intelligent guide to public services")
 
 st.divider()
 
@@ -145,39 +111,21 @@ st.divider()
 
 if not st.session_state.messages:
 
-    st.markdown(
-        """
-        <div style="
-            text-align: center;
-            padding: 35px 20px 20px 20px;
-        ">
+    st.header("👋 Welcome to NextStep AI")
 
-            <h2>
-                👋 Welcome to NextStep AI
-            </h2>
+    st.write(
+        "I can help you understand public services, "
+        "certificates, applications, government schemes, "
+        "licenses, permits, and more."
+    )
 
-            <p style="font-size: 18px;">
-                I can help you understand public services,
-                certificates, applications, government schemes,
-                licenses, permits, and more.
-            </p>
-
-            <p style="
-                font-size: 16px;
-                color: #666666;
-            ">
-                You don't need to know the exact service name.
-                Just tell me what you need.
-            </p>
-
-        </div>
-        """,
-        unsafe_allow_html=True
+    st.write(
+        "You don't need to know the exact service name. "
+        "Just tell me what you need."
     )
 
     st.info(
-        "💡 Tell me what you are trying to apply for, "
-        "understand, or solve."
+        "💡 What do you need help with today?"
     )
 
 
@@ -188,6 +136,7 @@ if not st.session_state.messages:
 for message in st.session_state.messages:
 
     with st.chat_message(message["role"]):
+
         st.write(message["content"])
 
 
@@ -201,7 +150,7 @@ user_message = st.chat_input(
 
 
 # =========================================================
-# PROCESS USER MESSAGE
+# PROCESS MESSAGE
 # =========================================================
 
 if user_message:
@@ -216,17 +165,22 @@ if user_message:
 
     # Display user message
     with st.chat_message("user"):
+
         st.write(user_message)
 
-    # Temporary AI response
+
+    # Temporary response
+    response = (
+        "I'm understanding your request and "
+        "figuring out the right next step..."
+    )
+
+
+    # Display AI response
     with st.chat_message("assistant"):
 
-        response = (
-            "I'm understanding your request and "
-            "figuring out the right next step..."
-        )
-
         st.write(response)
+
 
     # Save AI response
     st.session_state.messages.append(
@@ -236,15 +190,19 @@ if user_message:
         }
     )
 
-    # Conversation name
+
+    # Create conversation name
     conversation_name = user_message[:40].strip()
 
     if not conversation_name:
+
         conversation_name = "New Conversation"
+
 
     # Save conversation
     st.session_state.conversations[
         conversation_name
     ] = st.session_state.messages.copy()
+
 
     st.session_state.current_conversation = conversation_name
