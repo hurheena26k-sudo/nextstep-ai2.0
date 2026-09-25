@@ -75,6 +75,45 @@ class TestRoutingAndChat(unittest.TestCase):
         res = generate_fallback_response("show documents", history=history)
         self.assertEqual(res["data"]["service_id"], "passport")
 
+    def test_conversational_intents(self):
+        """Test conversational greetings, gratitude, and capability queries."""
+        for query in ["Hello", "Thank you", "What can you do?"]:
+            res = generate_fallback_response(query)
+            data = res["data"]
+            self.assertEqual(data["intent"], "conversational")
+            self.assertIn("assistant_message", data)
+            self.assertGreater(len(data.get("proactive_options", [])), 0)
+
+    def test_ambiguous_clarification(self):
+        """Test ambiguous queries ask clarification with options instead of picking Aadhaar."""
+        res = generate_fallback_response("I need a certificate")
+        data = res["data"]
+        self.assertEqual(data["intent"], "clarification")
+        self.assertIsNotNone(data.get("clarification_needed"))
+        self.assertNotEqual(data.get("service_id"), "aadhaar")
+        self.assertGreater(len(data.get("proactive_options", [])), 0)
+
+    def test_process_and_fee_qa(self):
+        """Test process questions like fees or timelines return direct QA answers."""
+        res_fee = generate_fallback_response("What is the fee for passport?")
+        data_fee = res_fee["data"]
+        self.assertEqual(data_fee["intent"], "process_qa")
+        self.assertIn("1,500", data_fee["assistant_message"])
+        self.assertEqual(data_fee["service_id"], "passport")
+
+        res_time = generate_fallback_response("How long does driving licence take?")
+        data_time = res_time["data"]
+        self.assertEqual(data_time["intent"], "process_qa")
+        self.assertEqual(data_time["service_id"], "driving_licence")
+
+    def test_service_discovery(self):
+        """Test situation narratives map to service discovery with options."""
+        res = generate_fallback_response("I moved to Hyderabad and need to update my address")
+        data = res["data"]
+        self.assertEqual(data["intent"], "service_discovery")
+        self.assertIn("Aadhaar", data["assistant_message"])
+        self.assertGreater(len(data.get("proactive_options", [])), 0)
+
     def test_audio_transcription_and_hash_deduplication(self):
         """Test audio transcription helper and empty audio validation."""
         # Empty audio
