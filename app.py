@@ -2,6 +2,7 @@ import streamlit as st
 from google import genai
 from google.genai import types
 
+
 # ============================================================
 # PAGE CONFIG
 # ============================================================
@@ -13,8 +14,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+
 # ============================================================
-# GEMINI CONFIGURATION
+# GEMINI
 # ============================================================
 
 MODEL_NAME = "gemini-3.8-flash"
@@ -23,112 +25,317 @@ client = genai.Client(
     api_key=st.secrets["GEMINI_API_KEY"]
 )
 
+
 # ============================================================
-# NEXTSTEP AI SYSTEM INSTRUCTION
+# NEXTSTEP AI INSTRUCTIONS
 # ============================================================
 
 NEXTSTEP_SYSTEM_INSTRUCTION = """
 You are NextStep AI, an intelligent public-service assistant.
 
-Your purpose is to help citizens understand and navigate public
-services and applications.
+Your job is to help citizens understand what government service
+they may need and guide them toward the correct next step.
 
-You can help with many types of public services, including:
+You must NOT behave like a simple question-answer chatbot.
 
-- Birth certificates
-- Death certificates
-- Income certificates
-- Caste certificates
-- Residence and domicile certificates
-- Government scheme applications
-- Licenses and permits
-- Public grievances
-- Municipal services
-- Education-related government services
-- Welfare services
-- Aadhaar-related guidance
-- Passport-related guidance
-- Voter-related services
-- Driving licence-related services
-- Property and municipal services
-- Water and sanitation services
-- Other legitimate public-service requests
+Your workflow is:
 
-IMPORTANT BEHAVIOR:
+1. Understand what the citizen is trying to accomplish.
 
-1. Start by understanding what the citizen needs.
+2. If the citizen has not provided enough information, ASK A
+   CLEAR CLARIFICATION QUESTION before giving a final process.
 
-2. Do not assume that the citizen already knows the official
-   name of the service.
+3. Do not guess important information.
 
-3. If the citizen describes a problem indirectly, identify
-   the possible service they may need.
+4. Once enough information is available, explain the process
+   using simple numbered steps.
 
-4. Ask simple follow-up questions when important information
-   is missing.
+5. Explain only the documents that are relevant to the service
+   when you have reliable information.
 
-5. Determine what information is relevant before giving guidance.
+6. If location matters, ask for the state/city/country.
 
-6. Explain the process in simple step-by-step language.
+7. Never invent:
+   - government rules
+   - fees
+   - deadlines
+   - eligibility requirements
+   - documents
+   - official websites
+   - processing times
 
-7. Explain likely required documents only when appropriate.
+8. If you are uncertain about something, clearly say that it
+   needs to be verified from the official government source.
 
-8. Never invent government rules, fees, websites, deadlines,
-   eligibility requirements, or documents.
+9. Do not restrict yourself to only a few services.
 
-9. If the exact procedure depends on location, ask for the
-   relevant state, city, or country.
+10. You can help with many public services including:
+    - Birth certificates
+    - Death certificates
+    - Income certificates
+    - Caste certificates
+    - Residence/domicile certificates
+    - Government schemes
+    - Scholarships
+    - Licences
+    - Permits
+    - Public grievances
+    - Municipal services
+    - Property services
+    - Water services
+    - Education services
+    - Welfare services
+    - Aadhaar-related guidance
+    - Passport-related guidance
+    - Voter-related guidance
+    - Driving licence-related guidance
+    - Other legitimate government services
 
-10. If you do not have enough reliable information, clearly
-    say what needs to be verified.
+RESPONSE BEHAVIOR:
 
-11. Do not restrict yourself to a fixed list of services.
+If information is missing:
 
-12. If the citizen's request is outside public services,
-    politely explain that your main purpose is helping with
-    public services.
+Say what you understand and ask the most useful clarification
+question.
 
-STYLE:
+Example:
 
-- Friendly
+"I can help you with that. Which state are you applying in?"
+
+Do NOT provide a long generic procedure before the clarification.
+
+If enough information is available:
+
+Give the answer in this structure:
+
+What I understood:
+[short explanation]
+
+Next steps:
+1. ...
+2. ...
+3. ...
+4. ...
+
+Documents:
+- ...
+- ...
+
+Important:
+[only if necessary]
+
+Keep answers:
 - Clear
+- Friendly
 - Professional
-- Easy for ordinary citizens to understand
-- Helpful without overwhelming the citizen
+- Beginner-friendly
+- Short enough to understand easily
 
-Most importantly, guide the citizen toward their NEXT STEP.
+Your purpose is to help the citizen reach the correct NEXT STEP.
 """
 
+
 # ============================================================
-# OFFICIAL GOVERNMENT SOURCES
+# OFFICIAL SERVICE LINKS
+# ============================================================
+#
+# These are official government sources.
+# If a specific direct service link is not verified,
+# use the official government service directory instead.
 # ============================================================
 
-OFFICIAL_SOURCES = {
-    "Telangana MeeSeva": {
-        "url": "https://ts.meeseva.telangana.gov.in/",
-        "description": "Telangana government citizen services and applications."
+SERVICE_LINKS = {
+
+    "birth_certificate": {
+        "name": "Birth Certificate",
+        "keywords": [
+            "birth certificate",
+            "birth registration",
+            "register birth"
+        ],
+        "url": (
+            "https://ts.meeseva.telangana.gov.in/"
+            "meeseva/downloadzip.htm?"
+            "filename=CDMAAPPLICATIONFORBIRTHCERTIFICATE.pdf"
+        ),
+        "description": "Official Telangana birth certificate application form."
     },
-    "Telangana State Services": {
-        "url": "https://www.telangana.gov.in/services/state-services/",
-        "description": "Official Telangana state government services."
+
+    "death_certificate": {
+        "name": "Death Certificate",
+        "keywords": [
+            "death certificate",
+            "death registration",
+            "register death"
+        ],
+        "url": (
+            "https://ts.meeseva.telangana.gov.in/"
+            "meeseva/downloadzip.htm?"
+            "filename=CDMAAPPLICATIONFORDEATHCERTIFICATE.pdf"
+        ),
+        "description": "Official Telangana death registration application form."
     },
-    "Telangana Public Utility Forms": {
-        "url": "https://www.telangana.gov.in/services/public-utility-forms/",
-        "description": "Official Telangana government application forms."
+
+    "income_certificate": {
+        "name": "Income Certificate",
+        "keywords": [
+            "income certificate",
+            "income proof",
+            "income certificate application"
+        ],
+        "url": (
+            "https://ts.meeseva.telangana.gov.in/"
+            "meeseva/downloadzip.htm?"
+            "filename=IncomeGeneralApplicationForm.pdf"
+        ),
+        "description": "Official Telangana income certificate application form."
     },
-    "India Government Services": {
+
+    "driving_license": {
+        "name": "Driving Licence",
+        "keywords": [
+            "driving licence",
+            "driving license",
+            "learner licence",
+            "learner license",
+            "dl application"
+        ],
+        "url": (
+            "https://transport.telangana.gov.in/"
+            "html/driving-licence.html"
+        ),
+        "description": "Official Telangana Transport Department driving licence service."
+    },
+
+    "passport": {
+        "name": "Passport",
+        "keywords": [
+            "passport",
+            "new passport",
+            "passport application",
+            "passport renewal",
+            "passport reissue"
+        ],
+        "url": "https://passportindia.gov.in/",
+        "description": "Official Passport Seva portal."
+    },
+
+    "voter_registration": {
+        "name": "Voter Registration",
+        "keywords": [
+            "voter",
+            "voter registration",
+            "voter id",
+            "electoral roll",
+            "electoral registration"
+        ],
+        "url": (
+            "https://www.india.gov.in/services/"
+        ),
+        "description": "Official Government of India services portal."
+    },
+
+    "scholarship": {
+        "name": "Telangana Scholarship",
+        "keywords": [
+            "scholarship",
+            "student scholarship",
+            "pre matric scholarship",
+            "post matric scholarship"
+        ],
+        "url": "https://telanganaepass.cgg.gov.in/",
+        "description": "Official Telangana ePASS scholarship portal."
+    },
+
+    "caste_certificate": {
+        "name": "Caste Certificate",
+        "keywords": [
+            "caste certificate",
+            "community certificate",
+            "sc certificate",
+            "st certificate",
+            "bc certificate"
+        ],
+        "url": (
+            "https://www.telangana.gov.in/"
+            "services/state-services/"
+        ),
+        "description": "Official Telangana State Services portal."
+    },
+
+    "residence_certificate": {
+        "name": "Residence / Domicile Certificate",
+        "keywords": [
+            "residence certificate",
+            "domicile certificate",
+            "nativity certificate"
+        ],
+        "url": (
+            "https://www.telangana.gov.in/"
+            "services/state-services/"
+        ),
+        "description": "Official Telangana State Services portal."
+    },
+
+    "property_tax": {
+        "name": "Property Tax",
+        "keywords": [
+            "property tax",
+            "house tax",
+            "property payment"
+        ],
+        "url": (
+            "https://www.telangana.gov.in/"
+            "services/state-services/"
+        ),
+        "description": "Official Telangana State Services portal."
+    },
+
+    "water_connection": {
+        "name": "Water Connection",
+        "keywords": [
+            "water connection",
+            "new water connection",
+            "water supply"
+        ],
+        "url": (
+            "https://www.telangana.gov.in/"
+            "services/state-services/"
+        ),
+        "description": "Official Telangana State Services portal."
+    },
+
+    "general": {
+        "name": "Government Services Directory",
+        "keywords": [],
         "url": "https://www.india.gov.in/services",
-        "description": "National Portal of India government services."
-    },
-    "National Government Services Portal": {
-        "url": "https://services.india.gov.in/",
-        "description": "Government of India services directory."
-    },
-    "Telangana State Portal": {
-        "url": "https://www.telangana.gov.in/",
-        "description": "Official Telangana government portal."
+        "description": "Official Government of India services directory."
     }
 }
+
+
+# ============================================================
+# OFFICIAL GENERAL PORTALS
+# ============================================================
+
+OFFICIAL_PORTALS = {
+    "Telangana MeeSeva": (
+        "https://ts.meeseva.telangana.gov.in/"
+    ),
+    "Telangana State Services": (
+        "https://www.telangana.gov.in/services/state-services/"
+    ),
+    "Telangana Public Utility Forms": (
+        "https://www.telangana.gov.in/services/public-utility-forms/"
+    ),
+    "India Government Services": (
+        "https://www.india.gov.in/services"
+    ),
+    "National Government Services Portal": (
+        "https://services.india.gov.in/"
+    )
+}
+
 
 # ============================================================
 # SESSION STATE
@@ -143,51 +350,29 @@ if "conversations" not in st.session_state:
 if "current_conversation" not in st.session_state:
     st.session_state.current_conversation = "New Conversation"
 
+
 # ============================================================
-# HELPER FUNCTIONS
+# FIND SERVICE LINK
 # ============================================================
 
-def get_source_for_message(message):
+def find_service_link(user_message):
 
-    text = message.lower()
+    text = user_message.lower()
 
-    telangana_keywords = [
-        "telangana",
-        "hyderabad",
-        "meeseva",
-        "ghmc",
-        "income certificate",
-        "caste certificate",
-        "residence certificate",
-        "domicile",
-        "birth certificate",
-        "death certificate",
-        "property tax",
-        "water connection",
-        "municipal",
-        "scholarship",
-        "ration card"
-    ]
+    for service_key, service in SERVICE_LINKS.items():
 
-    central_keywords = [
-        "aadhaar",
-        "passport",
-        "pan card",
-        "income tax",
-        "railway",
-        "india post",
-        "mgnrega",
-        "central government"
-    ]
+        for keyword in service["keywords"]:
 
-    if any(word in text for word in telangana_keywords):
-        return OFFICIAL_SOURCES["Telangana MeeSeva"]
+            if keyword in text:
 
-    if any(word in text for word in central_keywords):
-        return OFFICIAL_SOURCES["India Government Services"]
+                return service
 
-    return OFFICIAL_SOURCES["National Government Services Portal"]
+    return SERVICE_LINKS["general"]
 
+
+# ============================================================
+# GEMINI FUNCTION
+# ============================================================
 
 def ask_nextstep_ai(user_message, conversation_history):
 
@@ -195,9 +380,14 @@ def ask_nextstep_ai(user_message, conversation_history):
 
     for message in conversation_history:
 
+        role = message["role"]
+
+        if role == "assistant":
+            role = "model"
+
         contents.append(
             types.Content(
-                role=message["role"],
+                role=role,
                 parts=[
                     types.Part(
                         text=message["content"]
@@ -235,11 +425,12 @@ def ask_nextstep_ai(user_message, conversation_history):
                 contents=contents,
                 config=types.GenerateContentConfig(
                     system_instruction=NEXTSTEP_SYSTEM_INSTRUCTION,
-                    temperature=0.4
+                    temperature=0.3
                 )
             )
 
             if response.text:
+
                 return response.text
 
         except Exception as error:
@@ -248,10 +439,13 @@ def ask_nextstep_ai(user_message, conversation_history):
 
     return (
         "I'm temporarily unable to connect to the AI service. "
-        "Please try again in a moment.\n\n"
-        f"Technical information: {last_error}"
+        "Please try again in a moment."
     )
 
+
+# ============================================================
+# SAVE CONVERSATION
+# ============================================================
 
 def save_current_conversation():
 
@@ -281,7 +475,10 @@ with st.sidebar:
         save_current_conversation()
 
         st.session_state.messages = []
-        st.session_state.current_conversation = "New Conversation"
+
+        st.session_state.current_conversation = (
+            "New Conversation"
+        )
 
         st.rerun()
 
@@ -332,7 +529,9 @@ with st.sidebar:
                         st.session_state.current_conversation
                         == conversation_name
                     ):
+
                         st.session_state.messages = []
+
                         st.session_state.current_conversation = (
                             "New Conversation"
                         )
@@ -347,22 +546,19 @@ with st.sidebar:
 
     st.divider()
 
-    st.subheader("🌐 Official Sources")
+    st.subheader("🌐 Official Government Portals")
 
-    st.caption(
-        "Access government portals directly."
-    )
-
-    for source_name, source_data in OFFICIAL_SOURCES.items():
+    for name, url in OFFICIAL_PORTALS.items():
 
         st.link_button(
-            source_name,
-            source_data["url"],
+            name,
+            url,
             use_container_width=True
         )
 
+
 # ============================================================
-# MAIN HEADER
+# MAIN APP
 # ============================================================
 
 st.title("🤖 NextStep AI")
@@ -373,13 +569,16 @@ st.write(
 
 st.divider()
 
+
 # ============================================================
 # WELCOME SCREEN
 # ============================================================
 
 if not st.session_state.messages:
 
-    st.subheader("👋 What do you need help with?")
+    st.subheader(
+        "👋 What do you need help with?"
+    )
 
     st.write(
         "Tell me what you need in your own words."
@@ -392,8 +591,9 @@ if not st.session_state.messages:
 
     st.divider()
 
+
 # ============================================================
-# DISPLAY CONVERSATION
+# DISPLAY CHAT HISTORY
 # ============================================================
 
 for message in st.session_state.messages:
@@ -401,6 +601,7 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
 
         st.write(message["content"])
+
 
 # ============================================================
 # CHAT INPUT
@@ -410,10 +611,11 @@ user_input = st.chat_input(
     "Tell NextStep AI what you need help with..."
 )
 
+
 if user_input:
 
     # --------------------------------------------------------
-    # USER MESSAGE
+    # SHOW USER MESSAGE
     # --------------------------------------------------------
 
     with st.chat_message("user"):
@@ -452,18 +654,24 @@ if user_input:
     )
 
     # --------------------------------------------------------
-    # OFFICIAL SOURCE
+    # OFFICIAL SERVICE LINK
     # --------------------------------------------------------
 
-    source = get_source_for_message(user_input)
+    service = find_service_link(user_input)
 
-    st.info(
-        f"🌐 Official source: {source['description']}"
+    st.divider()
+
+    st.subheader(
+        f"🔗 Official {service['name']} Source"
+    )
+
+    st.caption(
+        service["description"]
     )
 
     st.link_button(
-        "Open Official Government Portal",
-        source["url"]
+        f"Open {service['name']} Service",
+        service["url"]
     )
 
     # --------------------------------------------------------
