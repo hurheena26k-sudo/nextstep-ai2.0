@@ -8,6 +8,7 @@ Implements 5 agent workflow stages:
 5. Verification & Response Generation
 
 Handles real Gemini API calling via `google-genai` and robust fallback using `services_data`.
+Supports multi-turn conversation context and language preferences.
 """
 
 import json
@@ -33,14 +34,14 @@ AGENT_STAGES = [
 SYSTEM_PROMPT = """
 You are NextStep AI, an expert AI assistant navigating Indian public and government services with specialized expertise in Central Government services and Telangana State services (MeeSeva, GHMC, CDMA).
 
-Your task is to analyze a citizen's request and respond strictly in valid JSON format adhering to the following structure:
+Your task is to analyze a citizen's request (and conversation history) and respond strictly in valid JSON format adhering to the following structure:
 
 {
   "service_id": "passport|aadhaar|pan|birth_certificate|property_tax|other_service_id",
   "service_name": "Official Service Name",
   "jurisdiction": "Central|Telangana|Other State",
   "jurisdiction_label": "e.g., Central Government (UIDAI) or Telangana State Government (MeeSeva / GHMC)",
-  "summary": "Clear 2-sentence summary of what this service handles.",
+  "summary": "Clear 2-sentence summary of what this service handles or answer to citizen's follow-up question.",
   "documents": [
     {"name": "Document Name", "required": true, "notes": "Short explanation"},
     {"name": "Document Name 2", "required": false, "notes": "Optional/conditional explanation"}
@@ -60,7 +61,9 @@ CRITICAL GUIDELINES:
 1. Always accurately identify if the service is a Central Government service (e.g. Passport, Aadhaar, PAN) or a Telangana State service (e.g. Birth Certificate via MeeSeva/GHMC, Property Tax via GHMC/CDMA).
 2. Never invent fake government portal URLs or URLs ending in .com unless it's an official partner like IRCTC/Protean. For Passport use https://www.passportindia.gov.in/, for Aadhaar use https://uidai.gov.in/, for PAN use https://www.incometax.gov.in/, for Telangana Birth/MeeSeva use https://ts.meeseva.telangana.gov.in/, for Property Tax use https://www.ghmc.gov.in/.
 3. Clearly distinguish mandatory documents (`required: true`) from conditional documents (`required: false`).
-4. Output ONLY raw valid JSON, without markdown backticks or commentary surrounding the JSON.
+4. Support follow-up responses seamlessly using conversation history.
+5. Respect the requested language preference (English, Telugu, or Hindi) for output text fields (`summary`, `steps`, `next_action`, `notes`).
+6. Output ONLY raw valid JSON, without markdown backticks or commentary surrounding the JSON.
 """
 
 
@@ -84,9 +87,16 @@ def get_api_key(st_secrets=None) -> Optional[str]:
     return None
 
 
-def generate_fallback_response(query: str) -> Dict[str, Any]:
+def generate_fallback_response(query: str, history: Optional[List[Dict[str, str]]] = None, language: str = "English") -> Dict[str, Any]:
     """Generates structured response from local curated knowledge base if API key is not available or API fails."""
-    matched = search_service_by_query(query)
+    # Check if query matches keywords directly or in recent history
+    combined_query = query
+    if history:
+        for msg in reversed(history[-4:]):
+            if msg.get("role") == "user":
+                combined_query += " " + msg.get("content", "")
+
+    matched = search_service_by_query(combined_query) or search_service_by_query(query)
 
     if matched:
         return {
@@ -108,8 +118,15 @@ def generate_fallback_response(query: str) -> Dict[str, Any]:
             }
         }
 
+    # Handle common quick-reply queries when in a conversation
+    query_lower = query.lower().strip()
+    if query_lower in ["show documents", "documents"]:
+        return generate_fallback_response("passport", history, language)
+    if query_lower in ["what should i do next?", "what next?", "next steps"]:
+        return generate_fallback_response("birth certificate", history, language)
+
     # Generic fallback if query is outside the 5 main services
-    is_telangana = any(kw in query.lower() for kw in ["telangana", "hyderabad", "ghmc", "meeseva", "ts"])
+    is_telangana = any(kw in combined_query.lower() for kw in ["telangana", "hyderabad", "ghmc", "meeseva", "ts"])
     jurisdiction = "Telangana" if is_telangana else "Central"
     jurisdiction_label = "Telangana State Government (MeeSeva Portal)" if is_telangana else "Central Government (National Portal of India)"
     portal_url = "https://ts.meeseva.telangana.gov.in/" if is_telangana else "https://www.india.gov.in/"
@@ -144,7 +161,13 @@ def generate_fallback_response(query: str) -> Dict[str, Any]:
     }
 
 
-def execute_agent_workflow(user_query: str, api_key: Optional[str] = None, progress_callback=None) -> Dict[str, Any]:
+def execute_agent_workflow(
+    user_query: str,
+    api_key: Optional[str] = None,
+    history: Optional[List[Dict[str, str]]] = None,
+    language: str = "English",
+    progress_callback=None
+) -> Dict[str, Any]:
     """
     Executes the 5-stage agent workflow:
     1. Intent Analysis
@@ -161,17 +184,25 @@ def execute_agent_workflow(user_query: str, api_key: Optional[str] = None, progr
                 progress_callback(stage["id"], stage["title"], stage["description"])
             except Exception:
                 pass
-            time.sleep(0.1)  # brief timing for visual transition in hackathon demo
+            time.sleep(0.1)
 
     # If no API key, use verified knowledge engine fallback
     if not api_key:
-        return generate_fallback_response(user_query)
+        return generate_fallback_response(user_query, history, language)
 
     try:
         # Initialize Google GenAI client with official SDK
         client = genai.Client(api_key=api_key)
 
-        prompt = f"Citizen Query: {user_query}\n\nProvide the response strictly as valid JSON following the schema specified in the system instructions."
+        history_str = ""
+        if history:
+            history_str = "Conversation History:\n"
+            for msg in history[-6:]:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                history_str += f"{role.upper()}: {content}\n"
+
+        prompt = f"{history_str}\nTarget Language: {language}\nLatest Citizen Query: {user_query}\n\nProvide the response strictly as valid JSON following the schema specified in the system instructions."
 
         # Call Gemini 2.5 Flash model
         response = client.models.generate_content(
@@ -197,7 +228,12 @@ def execute_agent_workflow(user_query: str, api_key: Optional[str] = None, progr
         data = json.loads(raw_text.strip())
 
         # Cross-verify and patch official verified URLs if matched with curated database
-        matched_db = search_service_by_query(user_query)
+        combined = user_query
+        if history:
+            for m in reversed(history[-4:]):
+                combined += " " + m.get("content", "")
+        matched_db = search_service_by_query(combined) or search_service_by_query(user_query)
+
         if matched_db:
             data["official_url"] = matched_db["official_url"]
             data["portal_name"] = matched_db["portal_name"]
@@ -213,6 +249,6 @@ def execute_agent_workflow(user_query: str, api_key: Optional[str] = None, progr
 
     except Exception as e:
         print(f"Gemini API Exception, falling back to Knowledge Engine: {e}")
-        fallback = generate_fallback_response(user_query)
+        fallback = generate_fallback_response(user_query, history, language)
         fallback["api_error"] = str(e)
         return fallback

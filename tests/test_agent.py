@@ -39,6 +39,16 @@ class TestNextStepAgent(unittest.TestCase):
         self.assertTrue(data["is_verified_url"])
         self.assertIn("ghmc.gov.in", data["official_url"])
 
+    def test_multi_turn_history_context(self):
+        """Verify that follow-up queries resolve using conversation history context."""
+        history = [
+            {"role": "user", "content": "I need to get a birth certificate for my baby born in GHMC hospital"},
+            {"role": "assistant", "content": "Birth certificate guidance"}
+        ]
+        res = execute_agent_workflow("Show documents", api_key=None, history=history)
+        self.assertTrue(res["success"])
+        self.assertEqual(res["data"]["jurisdiction"], "Telangana")
+
     def test_agent_stages_count(self):
         """Verify 5 defined agent workflow stages."""
         self.assertEqual(len(AGENT_STAGES), 5)

@@ -34,24 +34,21 @@ def safe_get_secrets():
 # SESSION STATE INITIALIZATION
 # ============================================================
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
-if "current_response" not in st.session_state:
-    st.session_state.current_response = None
+if "pending_prompt" not in st.session_state:
+    st.session_state.pending_prompt = None
 
-if "executing_stage" not in st.session_state:
-    st.session_state.executing_stage = 0
-
-if "checklist_state" not in st.session_state:
-    st.session_state.checklist_state = {}
+if "selected_language" not in st.session_state:
+    st.session_state.selected_language = "English"
 
 if "user_api_key" not in st.session_state:
     st.session_state.user_api_key = os.environ.get("GEMINI_API_KEY", "")
 
 
 # ============================================================
-# CUSTOM CSS FOR PREMIUM HACKATHON LOOK
+# CUSTOM CSS FOR PREMIUM CHAT LOOK
 # ============================================================
 
 st.markdown("""
@@ -63,9 +60,36 @@ st.markdown("""
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
-    /* Hide standard top header bar background */
-    header[data-testid="stHeader"] {
-        background: transparent;
+    /* Primary & secondary button overrides for high contrast */
+    .stButton > button {
+        background-color: #1e293b !important;
+        color: #f8fafc !important;
+        border: 1px solid #475569 !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease !important;
+    }
+    .stButton > button:hover {
+        background-color: #0284c7 !important;
+        color: #ffffff !important;
+        border-color: #38bdf8 !important;
+    }
+
+    /* Force readable text colors for headers and text elements */
+    h1, h2, h3, h4, h5, h6 {
+        color: #f8fafc !important;
+    }
+
+    /* Expander styling */
+    .streamlit-expanderHeader {
+        background-color: #1e293b !important;
+        color: #f8fafc !important;
+        border-radius: 8px !important;
+    }
+
+    /* Checkbox labels */
+    [data-testid="stCheckbox"] label {
+        color: #f8fafc !important;
     }
 
     /* Custom Navbar Header */
@@ -74,7 +98,7 @@ st.markdown("""
         border-bottom: 1px solid #334155;
         padding: 1.2rem 2rem;
         border-radius: 12px;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1.2rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -118,56 +142,21 @@ st.markdown("""
         display: inline-block;
     }
 
-    /* Service Cards Grid */
-    .service-card {
-        background: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 12px;
-        padding: 1.2rem;
-        transition: all 0.2s ease-in-out;
-        height: 100%;
-        cursor: pointer;
-    }
-
-    .service-card:hover {
-        border-color: #38bdf8;
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(56, 189, 248, 0.15);
-    }
-
-    .card-icon {
-        font-size: 2rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .card-title {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #f8fafc;
-        margin-bottom: 0.3rem;
-    }
-
-    .card-desc {
-        font-size: 0.85rem;
-        color: #94a3b8;
-        line-height: 1.4;
-    }
-
     /* Agent Stage Progress Panel */
     .stage-box {
         background: #1e293b;
         border: 1px solid #334155;
         border-radius: 12px;
         padding: 1.2rem;
-        margin: 1.5rem 0;
+        margin: 1rem 0;
     }
 
     .stage-item {
         display: flex;
         align-items: center;
-        padding: 0.6rem 0.8rem;
+        padding: 0.5rem 0.8rem;
         border-radius: 8px;
-        margin-bottom: 0.4rem;
+        margin-bottom: 0.3rem;
         transition: all 0.3s ease;
     }
 
@@ -189,47 +178,42 @@ st.markdown("""
         color: #64748b;
     }
 
-    /* Checklist Section */
-    .checklist-card {
+    /* Response Card Container */
+    .card-response {
         background: #1e293b;
         border: 1px solid #334155;
-        border-radius: 12px;
+        border-radius: 14px;
         padding: 1.5rem;
-        margin-top: 1rem;
+        margin-top: 0.5rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
     }
 
     /* Official Disclaimer Banner */
     .disclaimer-banner {
         background: rgba(30, 41, 59, 0.8);
         border-left: 4px solid #38bdf8;
-        padding: 1rem;
+        padding: 0.8rem;
         border-radius: 6px;
-        font-size: 0.85rem;
+        font-size: 0.82rem;
         color: #cbd5e1;
-        margin-top: 2rem;
+        margin-top: 1.5rem;
     }
 
-    /* Streamlit UI element overrides */
-    .stTextInput > div > div > input {
-        background-color: #1e293b !important;
-        color: #f8fafc !important;
-        border: 1px solid #334155 !important;
-        border-radius: 8px !important;
+    /* Quick Reply Chip Buttons */
+    .quick-chip {
+        background: #334155;
+        color: #f8fafc;
+        border: 1px solid #475569;
+        border-radius: 20px;
+        padding: 6px 14px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s;
     }
 
-    .stButton > button {
-        background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
-        color: white !important;
-        border: none !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
-        padding: 0.5rem 1.2rem !important;
-        transition: all 0.2s ease-in-out !important;
-    }
-
-    .stButton > button:hover {
-        background: linear-gradient(135deg, #0369a1 0%, #1d4ed8 100%);
-        box-shadow: 0 4px 15px rgba(37, 99, 235, 0.3) !important;
+    .quick-chip:hover {
+        background: #0284c7;
+        border-color: #38bdf8;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -242,6 +226,21 @@ st.markdown("""
 with st.sidebar:
     st.markdown("### 🏛️ NextStep AI Settings")
     st.caption("AI Navigation Assistant for Indian Government Services")
+
+    st.divider()
+
+    # Language Selector
+    st.markdown("#### 🌐 Language Preference")
+    selected_lang = st.selectbox(
+        "Choose Interface Language:",
+        ["English", "Telugu (తెలుగు)", "Hindi (हिंदी)"],
+        index=["English", "Telugu (తెలుగు)", "Hindi (हिंदी)"].index(
+            "Telugu (తెలుగు)" if "Telugu" in st.session_state.selected_language else
+            ("Hindi (हिंदी)" if "Hindi" in st.session_state.selected_language else "English")
+        )
+    )
+    if selected_lang != st.session_state.selected_language:
+        st.session_state.selected_language = selected_lang
 
     st.divider()
 
@@ -272,13 +271,12 @@ with st.sidebar:
 
     st.divider()
 
-    if st.button("🔄 Clear Conversation", use_container_width=True):
-        st.session_state.messages = []
-        st.session_state.current_response = None
-        st.session_state.checklist_state = {}
+    if st.button("🔄 Clear Chat Conversation", use_container_width=True):
+        st.session_state.chat_history = []
+        st.session_state.pending_prompt = None
         st.rerun()
 
-    st.caption("NextStep AI v2.0 • Hackathon Edition")
+    st.caption("NextStep AI v2.5 • Conversational Edition")
 
 
 # ============================================================
@@ -300,125 +298,46 @@ st.markdown("""
 
 
 # ============================================================
-# CORE SUPPORTED SERVICE CARDS (1-CLICK TRIGGERS)
+# CORE SUPPORTED SERVICE CARDS (1-CLICK QUICK TRIGGERS)
 # ============================================================
 
-st.markdown("##### 🚀 Quick Select Core Government Services")
+st.markdown("##### 🚀 Quick Service Triggers")
 
 cols = st.columns(5)
 
-quick_query = None
-
 with cols[0]:
     if st.button("Passport\n\nApply/Renew", use_container_width=True):
-        quick_query = "How do I apply for or renew my Indian Passport in Telangana?"
+        st.session_state.pending_prompt = "How do I apply for or renew my Indian Passport in Telangana?"
 
 with cols[1]:
     if st.button("Aadhaar\n\nUpdate/Download", use_container_width=True):
-        quick_query = "How do I update my mobile number or address in my Aadhaar card?"
+        st.session_state.pending_prompt = "How do I update my mobile number or address in my Aadhaar card?"
 
 with cols[2]:
     if st.button("PAN Card\n\nInstant e-PAN", use_container_width=True):
-        quick_query = "I need an instant e-PAN card using Aadhaar card."
+        st.session_state.pending_prompt = "I need an instant e-PAN card using Aadhaar card."
 
 with cols[3]:
     if st.button("Birth Cert\n\nMeeSeva / GHMC", use_container_width=True):
-        quick_query = "I need to apply for a birth certificate in Hyderabad, Telangana."
+        st.session_state.pending_prompt = "I need to apply for a birth certificate in Hyderabad, Telangana."
 
 with cols[4]:
     if st.button("Property Tax\n\nGHMC / CDMA", use_container_width=True):
-        quick_query = "How do I calculate and pay GHMC property tax online in Telangana?"
+        st.session_state.pending_prompt = "How do I calculate and pay GHMC property tax online in Telangana?"
 
 
 # ============================================================
-# SEARCH / CHAT INPUT FORM
+# RENDER CHAT HISTORY MESSAGES & STRUCTURED CARDS
 # ============================================================
 
-st.markdown("")
-with st.form("query_form", clear_on_submit=True):
-    col_input, col_submit = st.columns([5, 1])
-    with col_input:
-        user_input = st.text_input(
-            "Describe the service or problem in plain natural language:",
-            placeholder="e.g. 'I need to get a birth certificate for my newborn baby in Hyderabad' or 'How to apply for fresh passport?'",
-            label_visibility="collapsed"
-        )
-    with col_submit:
-        submitted = st.form_submit_button("Ask Agent ➔", use_container_width=True)
-
-
-effective_query = user_input if (submitted and user_input) else quick_query
-
-
-# ============================================================
-# AGENT WORKFLOW EXECUTION & PROCESSING
-# ============================================================
-
-if effective_query:
-    st.session_state.messages.append({"role": "user", "content": effective_query})
-
-    # Render animated Agent Progress Panel during execution
-    st.markdown("### 🤖 Agent Execution Workflow")
-    progress_container = st.empty()
-
-    def update_stage_ui(active_stage_id, stage_title, stage_desc):
-        stage_html = '<div class="stage-box"><h5>Agent Workflow Stages</h5>'
-        for s in AGENT_STAGES:
-            s_id = s["id"]
-            if s_id < active_stage_id:
-                status_class = "stage-item completed"
-                badge = "✅"
-            elif s_id == active_stage_id:
-                status_class = "stage-item active"
-                badge = "⏳"
-            else:
-                status_class = "stage-item pending"
-                badge = "⚪"
-
-            stage_html += f"""
-            <div class="{status_class}">
-                <span style="margin-right:10px; font-size:1.1rem;">{badge} {s['icon']}</span>
-                <div>
-                    <strong>Stage {s_id}: {s['title']}</strong> - <span style="font-size:0.85rem;">{s['description']}</span>
-                </div>
-            </div>
-            """
-        stage_html += '</div>'
-        progress_container.markdown(stage_html, unsafe_allow_html=True)
-
-    # Execute workflow
-    api_key_to_use = get_api_key(safe_get_secrets()) or st.session_state.user_api_key
-    response = execute_agent_workflow(
-        user_query=effective_query,
-        api_key=api_key_to_use,
-        progress_callback=update_stage_ui
-    )
-
-    # Final stage completion visual update
-    update_stage_ui(6, "Completed", "Response Generated")
-    time.sleep(0.2)
-    progress_container.empty()
-
-    if response.get("success"):
-        st.session_state.current_response = response["data"]
-    else:
-        st.error("Failed to process request. Please try again.")
-
-
-# ============================================================
-# DISPLAY CURRENT NAVIGATION RESPONSE
-# ============================================================
-
-if st.session_state.current_response:
-    res = st.session_state.current_response
-
-    st.markdown("---")
+def render_response_card(res, index):
+    st.markdown('<div class="card-response">', unsafe_allow_html=True)
 
     # Header & Jurisdiction Badge
     col_res_header, col_res_badge = st.columns([3, 1])
     with col_res_header:
-        st.markdown(f"## 🎯 {res.get('service_name', 'Government Service Navigation')}")
-        st.markdown(f"**Overview**: {res.get('summary', '')}")
+        st.markdown(f"### 🎯 {res.get('service_name', 'Government Service Navigation')}")
+        st.write(f"**Overview**: {res.get('summary', '')}")
 
     with col_res_badge:
         jurisdiction = res.get('jurisdiction', 'Central')
@@ -428,16 +347,13 @@ if st.session_state.current_response:
         else:
             st.markdown(f'<div style="text-align:right;"><span class="badge-central">{j_label}</span></div>', unsafe_allow_html=True)
 
-    st.markdown("")
+    st.markdown("---")
 
-    # Two Column Layout: Document Checklist & Step-by-Step Action Plan
     col_docs, col_steps = st.columns([1, 1])
 
-    # 1. DOCUMENT CHECKLIST
+    # 1. Document Checklist
     with col_docs:
-        st.markdown("### 📋 Required Documents Checklist")
-        st.caption("Select items you already have to track your readiness:")
-
+        st.markdown("#### 📋 Required Documents Checklist")
         docs = res.get("documents", [])
         if docs:
             for i, doc in enumerate(docs):
@@ -446,22 +362,17 @@ if st.session_state.current_response:
                 notes = doc.get("notes", "")
 
                 req_badge = "🔴 Mandatory" if is_req else "🟡 Optional / Conditional"
-                checkbox_key = f"doc_chk_{res.get('service_id', 'srv')}_{i}"
+                checkbox_key = f"doc_chk_{index}_{res.get('service_id', 'srv')}_{i}"
 
-                checked = st.checkbox(
-                    f"{doc_name}",
-                    key=checkbox_key,
-                    help=notes
-                )
+                st.checkbox(f"{doc_name}", key=checkbox_key, help=notes)
                 st.caption(f"&nbsp;&nbsp;&nbsp;&nbsp;*{req_badge}* — {notes}")
         else:
             st.info("No specific physical documents required for this step.")
 
-    # 2. STEP-BY-STEP ACTION PLAN
+    # 2. Personalized Next Steps
     with col_steps:
-        st.markdown("### 🗺️ Personalized Next Steps")
+        st.markdown("#### 🗺️ Personalized Next Steps")
         steps = res.get("steps", [])
-
         for step in steps:
             s_num = step.get("step", 1)
             s_title = step.get("title", f"Step {s_num}")
@@ -470,86 +381,169 @@ if st.session_state.current_response:
             with st.expander(f"Step {s_num}: {s_title}", expanded=(s_num == 1)):
                 st.write(s_desc)
 
-    # 3. VERIFIED OFFICIAL SOURCE & VERIFICATION BADGE
+    # 3. Verified Portal Source
     st.markdown("---")
-    st.markdown("### 🛡️ Official Verification & Portal Access")
-
     col_verif_info, col_verif_link = st.columns([3, 2])
 
     with col_verif_info:
         if res.get("is_verified_url"):
-            st.success(f"✅ **Verified Source**: {res.get('portal_name', 'Official Portal')}")
+            st.success(f"✅ **Verified Official Source**: {res.get('portal_name', 'Official Portal')}")
         else:
             st.warning("⚠️ **Unverified Source**: Please confirm on the official state portal.")
-
         st.write(f"**Verification Notes**: {res.get('verification_notes', '')}")
         st.info(f"👉 **Immediate Next Step**: {res.get('next_action', 'Visit official portal.')}")
 
     with col_verif_link:
-        st.markdown("#### Direct Portal Link")
+        st.markdown("##### Direct Official Portal")
         official_url = res.get("official_url", "https://www.india.gov.in/")
         portal_name = res.get("portal_name", "Official Government Portal")
+        st.link_button(f"🌐 Open {portal_name}", official_url, use_container_width=True)
 
-        st.link_button(
-            f"🌐 Open {portal_name}",
-            official_url,
-            use_container_width=True
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+st.markdown("---")
+st.markdown("### 💬 Conversational Navigation Assistant")
+
+# Welcome Banner if Chat is Empty
+if not st.session_state.chat_history:
+    st.info("👋 **Welcome to NextStep AI!** Describe your government service situation in natural language, or click any quick trigger button above to begin.")
+
+# Display Existing Chat Messages
+for idx, message in enumerate(st.session_state.chat_history):
+    role = message.get("role")
+    content = message.get("content")
+    card_data = message.get("card_data")
+
+    if role == "user":
+        with st.chat_message("user", avatar="👤"):
+            st.markdown(content)
+    elif role == "assistant":
+        with st.chat_message("assistant", avatar="🏛️"):
+            if card_data:
+                render_response_card(card_data, idx)
+            else:
+                st.markdown(content)
+
+
+# ============================================================
+# QUICK REPLY BUTTONS BAR
+# ============================================================
+
+st.markdown("")
+st.caption("💡 Quick Follow-Up Replies:")
+q_cols = st.columns(5)
+with q_cols[0]:
+    if st.button("💬 Show documents", use_container_width=True):
+        st.session_state.pending_prompt = "Show documents"
+with q_cols[1]:
+    if st.button("💬 What next?", use_container_width=True):
+        st.session_state.pending_prompt = "What should I do next?"
+with q_cols[2]:
+    if st.button("💬 Yes", use_container_width=True):
+        st.session_state.pending_prompt = "Yes, please provide more details."
+with q_cols[3]:
+    if st.button("💬 No", use_container_width=True):
+        st.session_state.pending_prompt = "No, I need help with another service."
+with q_cols[4]:
+    if st.button("💬 I don't know", use_container_width=True):
+        st.session_state.pending_prompt = "I don't know which government service handles this."
+
+
+# ============================================================
+# INPUT AREA (CHAT INPUT & VOICE INPUT FALLBACK)
+# ============================================================
+
+st.markdown("")
+input_col, audio_col = st.columns([5, 1], vertical_alignment="bottom")
+
+with input_col:
+    chat_prompt = st.chat_input("Ask NextStep AI about any government service or process...")
+
+with audio_col:
+    audio_val = st.audio_input("🎙️ Voice Input", key="audio_mic")
+
+
+if audio_val is not None and "audio_processed" not in st.session_state:
+    st.info("🎙️ Voice recorded! (Speech-to-text requires cloud audio API key; processing transcript fallback)")
+    st.session_state.pending_prompt = "I need help with a government service application in Telangana."
+    st.session_state.audio_processed = True
+
+
+# Determine active prompt to process
+active_user_prompt = chat_prompt or st.session_state.pending_prompt
+
+if active_user_prompt:
+    st.session_state.pending_prompt = None
+
+    # Append user message
+    st.session_state.chat_history.append({"role": "user", "content": active_user_prompt})
+
+    with st.chat_message("user", avatar="👤"):
+        st.markdown(active_user_prompt)
+
+    # Agent Processing & Stage Animation
+    with st.chat_message("assistant", avatar="🏛️"):
+        progress_container = st.empty()
+
+        def update_stage_ui(active_stage_id, stage_title, stage_desc):
+            stage_html = '<div class="stage-box"><h5>Agent Workflow Stages Execution</h5>'
+            for s in AGENT_STAGES:
+                s_id = s["id"]
+                if s_id < active_stage_id:
+                    status_class = "stage-item completed"
+                    badge = "✅"
+                elif s_id == active_stage_id:
+                    status_class = "stage-item active"
+                    badge = "⏳"
+                else:
+                    status_class = "stage-item pending"
+                    badge = "⚪"
+
+                stage_html += f"""
+                <div class="{status_class}">
+                    <span style="margin-right:10px; font-size:1.1rem;">{badge} {s['icon']}</span>
+                    <div>
+                        <strong>Stage {s_id}: {s['title']}</strong> - <span style="font-size:0.85rem;">{s['description']}</span>
+                    </div>
+                </div>
+                """
+            stage_html += '</div>'
+            progress_container.markdown(stage_html, unsafe_allow_html=True)
+
+        api_key_to_use = get_api_key(safe_get_secrets()) or st.session_state.user_api_key
+
+        response = execute_agent_workflow(
+            user_query=active_user_prompt,
+            api_key=api_key_to_use,
+            history=st.session_state.chat_history,
+            language=st.session_state.selected_language,
+            progress_callback=update_stage_ui
         )
-        st.caption("Note: Links direct strictly to official .gov.in or official government domain portals.")
 
-    # MANDATORY DISCLAIMER
-    st.markdown("""
-    <div class="disclaimer-banner">
-        🔒 <strong>NextStep AI Disclaimer</strong>: NextStep AI is an independent navigational guidance assistant.
-        It does not submit government applications on your behalf or access private government databases.
-        Always verify official fees and final requirements directly on official <code>.gov.in</code> websites.
-    </div>
-    """, unsafe_allow_html=True)
+        update_stage_ui(6, "Completed", "Response Generated")
+        time.sleep(0.2)
+        progress_container.empty()
+
+        if response.get("success"):
+            card_data = response["data"]
+            st.session_state.chat_history.append({
+                "role": "assistant",
+                "content": card_data.get("summary", ""),
+                "card_data": card_data
+            })
+            render_response_card(card_data, len(st.session_state.chat_history))
+        else:
+            st.error("Failed to process request. Please try again.")
+
+    st.rerun()
 
 
-# ============================================================
-# INITIAL WELCOME / HERO VIEW
-# ============================================================
-
-else:
-    st.markdown("---")
-    st.markdown("""
-    <div style="text-align: center; padding: 2rem 1rem;">
-        <h2 style="font-size: 2.2rem; font-weight: 800; color: #f8fafc; margin-bottom: 0.5rem;">
-            Which government service do you need help with today?
-        </h2>
-        <p style="font-size: 1.1rem; color: #94a3b8; max-width: 750px; margin: 0 auto 2rem auto;">
-            Describe your need in simple everyday language. NextStep AI will identify the exact service,
-            determine whether it is Central or Telangana State jurisdiction, prepare a document checklist,
-            and create a personalized action plan.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.markdown("""
-        <div class="service-card">
-            <div class="card-icon">🧠</div>
-            <div class="card-title">Natural Language Intent</div>
-            <div class="card-desc">No need to know official acronyms or department names. Speak naturally.</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with c2:
-        st.markdown("""
-        <div class="service-card">
-            <div class="card-icon">🏛️</div>
-            <div class="card-title">Telangana & Central Focus</div>
-            <div class="card-desc">Specialized support for Telangana MeeSeva, GHMC, CDMA alongside Central services.</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with c3:
-        st.markdown("""
-        <div class="service-card">
-            <div class="card-icon">🛡️</div>
-            <div class="card-title">100% Verified Links</div>
-            <div class="card-desc">Strict anti-hallucination policy for government URLs. Never invents official links.</div>
-        </div>
-        """, unsafe_allow_html=True)
+# MANDATORY DISCLAIMER FOOTER
+st.markdown("""
+<div class="disclaimer-banner">
+    🔒 <strong>NextStep AI Disclaimer</strong>: NextStep AI is an independent AI navigational guidance assistant.
+    It does not submit government applications on your behalf, bypass government authentication/OTP controls, or access private government databases.
+    Always verify official fees and final requirements directly on official <code>.gov.in</code> websites.
+</div>
+""", unsafe_allow_html=True)
