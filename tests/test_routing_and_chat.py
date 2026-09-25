@@ -23,6 +23,7 @@ class TestRoutingAndChat(unittest.TestCase):
             ("I need help with MeeSeva", "caste_income_certificate"),
             ("What documents are required for a caste certificate?", "caste_income_certificate"),
             ("How do I apply for an Aadhaar update?", "aadhaar"),
+            ("I want to apply for income tax", "itr_filing"),
         ]
 
         for query, expected_id in test_cases:

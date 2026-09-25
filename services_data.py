@@ -322,7 +322,7 @@ SERVICES_DATABASE = {
         "official_url": "https://www.incometax.gov.in/iec/foportal/",
         "portal_name": "Official Income Tax e-Filing Portal",
         "is_verified": True,
-        "keywords": ["itr", "income tax return", "itr filing", "tax refund", "form 16", "26as", "ais", "pan aadhaar link"],
+        "keywords": ["itr", "income tax return", "itr filing", "tax refund", "form 16", "26as", "ais", "pan aadhaar link", "income tax", "apply for income tax", "file income tax"],
         "documents": [
             {"name": "Form 16 / Form 16A", "status": "Typically required", "required": True, "why_needed": "Issued by employer showing salary and TDS deducted", "check_note": "Part A & Part B signed by employer"},
             {"name": "Annual Information Statement (AIS) & Form 26AS", "status": "Typically required", "required": True, "why_needed": "Consolidated record of tax deducted, dividend, and interest income", "check_note": "Download directly from e-Filing portal"},
