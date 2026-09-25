@@ -1,8 +1,10 @@
-import streamlit as st
-import requests
+import base64
 import json
 import re
-import time
+from typing import Any, Dict, List, Optional
+
+import requests
+import streamlit as st
 
 
 # ============================================================
@@ -11,852 +13,1194 @@ import time
 
 st.set_page_config(
     page_title="NextStep AI",
-    page_icon="🤖",
+    page_icon="✦",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
 
 # ============================================================
-# OPENROUTER CONFIG
+# CONSTANTS
 # ============================================================
 
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_CHAT_URL = (
+    "https://openrouter.ai/api/v1/chat/completions"
+)
 
-MODEL_NAME = "openrouter/free"
+OPENROUTER_STT_URL = (
+    "https://openrouter.ai/api/v1/audio/transcriptions"
+)
 
+CHAT_MODEL = "openrouter/free"
 
-# ============================================================
-# API KEY
-# ============================================================
+STT_MODEL = "openai/whisper-1"
 
-try:
-    OPENROUTER_API_KEY = st.secrets["OPENROUTER_API_KEY"]
-except Exception:
-    OPENROUTER_API_KEY = None
-
-
-# ============================================================
-# NEXTSTEP AI SYSTEM INSTRUCTION
-# ============================================================
-
-SYSTEM_INSTRUCTION = """
-You are NextStep AI, an intelligent public-service assistant.
-
-Your purpose is to help citizens understand and navigate public
-services and applications.
-
-You can help with many types of public services, including:
-
-- Birth certificates
-- Death certificates
-- Income certificates
-- Caste certificates
-- Residence certificates
-- Government scheme applications
-- Licenses and permits
-- Public grievances
-- Municipal services
-- Education-related government services
-- Welfare services
-- Public transport services
-- Property tax
-- Water connections
-- Employment services
-- Land services
-- Passport services
-- Aadhaar services
-- Voter services
-- Railway services
-- Other legitimate public-service requests
-
-IMPORTANT BEHAVIOR:
-
-1. Start by understanding what the citizen needs.
-
-2. Do not assume that the citizen already knows the name
-   of the government service.
-
-3. If the citizen describes a problem indirectly, identify
-   the possible service they may need.
-
-4. Ask simple follow-up questions when important information
-   is missing.
-
-5. Do not ask unnecessary questions.
-
-6. Explain the process in simple step-by-step language.
-
-7. Explain likely required documents only when appropriate.
-
-8. Never invent government rules, fees, deadlines,
-   eligibility requirements, or documents.
-
-9. If the exact procedure depends on location, ask for the
-   relevant state, city, or country.
-
-10. If reliable information is unavailable, clearly tell the
-    citizen what should be verified.
-
-11. Do not restrict yourself to a fixed list of services.
-
-12. If the request is outside public services, politely explain
-    that your main purpose is public-service assistance.
-
-RESPONSE FORMAT:
-
-Give helpful answers using this structure when appropriate:
-
-### What you need to do
-A short explanation.
-
-### Next steps
-1. Step one
-2. Step two
-3. Step three
-
-### Documents
-Only list documents when relevant.
-
-### Important
-Mention anything the citizen should verify.
-
-### Your next step
-Give one clear action the citizen can take now.
-
-Do NOT create fake government links.
-
-Do NOT claim that a website is official unless it is provided
-by the application.
-
-STYLE:
-
-- Friendly
-- Professional
-- Clear
-- Simple
-- Helpful
-- Not overly long
-- Suitable for ordinary citizens
-
-Most importantly, help the citizen understand their NEXT STEP.
-"""
+APP_URL = "https://nextstep-ai.streamlit.app"
 
 
 # ============================================================
-# OFFICIAL SERVICE LINKS
+# INDIA-WIDE OFFICIAL SERVICE LINKS
 # ============================================================
 
 SERVICE_LINKS = {
-    "birth_certificate": {
-        "name": "Birth Certificate",
-        "url": "https://www.telangana.gov.in/services/state-services/",
-        "label": "Official Telangana State Services"
-    },
 
-    "death_certificate": {
-        "name": "Death Certificate",
-        "url": "https://www.telangana.gov.in/services/state-services/",
-        "label": "Official Telangana State Services"
-    },
+    "birth_certificate": (
+        "Birth Certificate",
+        "https://services.india.gov.in/"
+    ),
 
-    "income_certificate": {
-        "name": "Income Certificate",
-        "url": "https://ts.meeseva.telangana.gov.in/meeseva/home.htm",
-        "label": "Official Telangana MeeSeva"
-    },
+    "death_certificate": (
+        "Death Certificate",
+        "https://services.india.gov.in/"
+    ),
 
-    "caste_certificate": {
-        "name": "Caste Certificate",
-        "url": "https://ts.meeseva.telangana.gov.in/meeseva/home.htm",
-        "label": "Official Telangana MeeSeva"
-    },
+    "income_certificate": (
+        "Income Certificate",
+        "https://services.india.gov.in/"
+    ),
 
-    "residence_certificate": {
-        "name": "Residence Certificate",
-        "url": "https://ts.meeseva.telangana.gov.in/meeseva/home.htm",
-        "label": "Official Telangana MeeSeva"
-    },
+    "caste_certificate": (
+        "Caste Certificate",
+        "https://services.india.gov.in/"
+    ),
 
-    "driving_license": {
-        "name": "Driving Licence",
-        "url": "https://transport.telangana.gov.in/",
-        "label": "Official Telangana Transport Department"
-    },
+    "residence_certificate": (
+        "Residence Certificate",
+        "https://services.india.gov.in/"
+    ),
 
-    "passport": {
-        "name": "Passport",
-        "url": "https://www.passportindia.gov.in/",
-        "label": "Official Passport Seva"
-    },
+    "driving_license": (
+        "Driving Licence",
+        "https://parivahan.gov.in/"
+    ),
 
-    "aadhaar": {
-        "name": "Aadhaar",
-        "url": "https://www.uidai.gov.in/",
-        "label": "Official UIDAI"
-    },
+    "passport": (
+        "Passport",
+        "https://www.passportindia.gov.in/"
+    ),
 
-    "government_schemes": {
-        "name": "Government Schemes",
-        "url": "https://www.india.gov.in/",
-        "label": "Official National Government Portal"
-    },
+    "aadhaar": (
+        "Aadhaar",
+        "https://uidai.gov.in/"
+    ),
 
-    "public_grievance": {
-        "name": "Public Grievance",
-        "url": "https://www.india.gov.in/",
-        "label": "Official National Government Portal"
-    },
+    "government_schemes": (
+        "Government Schemes",
+        "https://www.india.gov.in/"
+    ),
 
-    "property_tax": {
-        "name": "Property Tax",
-        "url": "https://www.telangana.gov.in/services/state-services/",
-        "label": "Official Telangana State Services"
-    },
+    "public_grievance": (
+        "Public Grievance",
+        "https://pgportal.gov.in/"
+    ),
 
-    "water_connection": {
-        "name": "Water Connection",
-        "url": "https://www.telangana.gov.in/services/state-services/",
-        "label": "Official Telangana State Services"
-    },
+    "property_tax": (
+        "Property Tax",
+        "https://services.india.gov.in/"
+    ),
 
-    "voter_service": {
-        "name": "Voter Services",
-        "url": "https://www.india.gov.in/",
-        "label": "Official National Government Portal"
-    },
+    "water_connection": (
+        "Water Connection",
+        "https://services.india.gov.in/"
+    ),
 
-    "education_scholarship": {
-        "name": "Education / Scholarship",
-        "url": "https://telanganaepass.cgg.gov.in/",
-        "label": "Official Telangana ePASS"
-    },
+    "voter_service": (
+        "Voter Services",
+        "https://voters.eci.gov.in/"
+    ),
 
-    "employment": {
-        "name": "Employment Services",
-        "url": "https://ts.meeseva.telangana.gov.in/meeseva/home.htm",
-        "label": "Official Telangana MeeSeva"
-    },
+    "education_scholarship": (
+        "Scholarships",
+        "https://scholarships.gov.in/"
+    ),
 
-    "railway": {
-        "name": "Railway Services",
-        "url": "https://www.irctc.co.in/",
-        "label": "Official IRCTC"
-    },
+    "employment": (
+        "Employment Services",
+        "https://www.ncs.gov.in/"
+    ),
 
-    "land_services": {
-        "name": "Land Services",
-        "url": "https://www.telangana.gov.in/",
-        "label": "Official Telangana State Portal"
-    },
+    "railway": (
+        "Railway Services",
+        "https://www.irctc.co.in/"
+    ),
 
-    "other_government_service": {
-        "name": "Government Services",
-        "url": "https://www.india.gov.in/",
-        "label": "Official National Government Portal"
-    }
+    "land_services": (
+        "Land Services",
+        "https://services.india.gov.in/"
+    ),
+
+    "digilocker": (
+        "DigiLocker",
+        "https://www.digilocker.gov.in/"
+    ),
+
+    "other_government_service": (
+        "Government Services",
+        "https://services.india.gov.in/"
+    ),
 }
+
+
+# ============================================================
+# SERVICE ALIASES
+# ============================================================
+
+SERVICE_ALIASES = {
+
+    "birth certificate": "birth_certificate",
+
+    "death certificate": "death_certificate",
+
+    "income certificate": "income_certificate",
+
+    "caste certificate": "caste_certificate",
+
+    "residence certificate": "residence_certificate",
+
+    "driving licence": "driving_license",
+
+    "driving license": "driving_license",
+
+    "passport": "passport",
+
+    "aadhaar": "aadhaar",
+
+    "aadhar": "aadhaar",
+
+    "government scheme": "government_schemes",
+
+    "government schemes": "government_schemes",
+
+    "grievance": "public_grievance",
+
+    "complaint": "public_grievance",
+
+    "property tax": "property_tax",
+
+    "water connection": "water_connection",
+
+    "voter": "voter_service",
+
+    "scholarship": "education_scholarship",
+
+    "employment": "employment",
+
+    "job": "employment",
+
+    "railway": "railway",
+
+    "train": "railway",
+
+    "land": "land_services",
+
+    "digilocker": "digilocker",
+}
+
+
+# ============================================================
+# AI SYSTEM INSTRUCTION
+# ============================================================
+
+SYSTEM_INSTRUCTION = """
+You are NextStep AI, an intelligent public-service assistant
+for citizens in India.
+
+Your job is to understand what a citizen needs, identify the
+relevant public-service category, and give simple practical
+next steps.
+
+The citizen may describe a problem without knowing the official
+service name.
+
+You can help with central, state, and local public services
+across India, including:
+
+- Certificates
+- Aadhaar
+- Passports
+- Driving licences
+- Voter services
+- Government schemes
+- Scholarships
+- Employment
+- Public grievances
+- Municipal services
+- Property tax
+- Water services
+- Railways
+- Land services
+- DigiLocker
+- Permits
+- Other legitimate government services
+
+RULES:
+
+1. Understand the citizen's actual need before choosing
+   a service.
+
+2. If the request is unclear, ask one useful clarification
+   question.
+
+3. If location matters, ask for the state or city instead
+   of assuming it.
+
+4. Give practical numbered steps when the service is clear.
+
+5. Never invent fees, deadlines, eligibility rules,
+   documents, or government procedures.
+
+6. If a detail varies by state or local authority, clearly
+   say that it varies and direct the citizen to the official
+   government services portal.
+
+7. Do not put URLs in your answer.
+   The application adds official links separately.
+
+8. Use conversation history.
+
+9. Greetings and casual questions are general questions,
+   not service requests.
+
+10. Keep the response concise and citizen-friendly.
+
+Return ONLY a JSON object with exactly these fields:
+
+{
+  "intent": "general" | "clarification" | "service_request",
+  "service_key": "one allowed service key" | null,
+  "title": "short title",
+  "summary": "short explanation",
+  "steps": ["step 1", "step 2"],
+  "documents": ["document 1"],
+  "next_action": "one clear next action",
+  "transcript": "latest citizen message"
+}
+
+Allowed service_key values:
+
+birth_certificate
+death_certificate
+income_certificate
+caste_certificate
+residence_certificate
+driving_license
+passport
+aadhaar
+government_schemes
+public_grievance
+property_tax
+water_connection
+voter_service
+education_scholarship
+employment
+railway
+land_services
+digilocker
+other_government_service
+""".strip()
 
 
 # ============================================================
 # SESSION STATE
 # ============================================================
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+DEFAULTS = {
+    "messages": [],
+    "pending_prompt": None,
+    "conversation_name": "New conversation",
+    "voice_key": 0,
+    "last_audio_signature": None,
+    "show_settings": False,
+}
 
-if "conversation_history" not in st.session_state:
-    st.session_state.conversation_history = []
+for key, value in DEFAULTS.items():
 
-if "pending_prompt" not in st.session_state:
-    st.session_state.pending_prompt = None
+    if key not in st.session_state:
 
-if "last_request_time" not in st.session_state:
-    st.session_state.last_request_time = 0
-
-if "request_count" not in st.session_state:
-    st.session_state.request_count = 0
+        st.session_state[key] = value
 
 
 # ============================================================
-# CUSTOM STYLING
+# OPENROUTER API KEY
+# ============================================================
+
+try:
+
+    OPENROUTER_API_KEY = st.secrets[
+        "OPENROUTER_API_KEY"
+    ]
+
+except Exception:
+
+    OPENROUTER_API_KEY = ""
+
+
+# ============================================================
+# INTERFACE STYLING
+#
+# IMPORTANT:
+# This is styling only.
+# The HTML/CSS itself is never displayed as page content.
 # ============================================================
 
 st.markdown(
     """
     <style>
 
-    .stApp {
-        background: #f7f9fc;
+    .block-container {
+        max-width: 1180px;
+        padding-top: 1.2rem;
+        padding-bottom: 7rem;
     }
 
     [data-testid="stSidebar"] {
-        background: #111827;
-    }
-
-    [data-testid="stSidebar"] * {
-        color: #f9fafb;
-    }
-
-    .brand-title {
-        font-size: 2.1rem;
-        font-weight: 800;
-        letter-spacing: -1px;
-        margin-bottom: 0;
-    }
-
-    .brand-subtitle {
-        color: #6b7280;
-        font-size: 0.95rem;
-        margin-top: 3px;
+        border-right: 1px solid rgba(120, 140, 170, 0.20);
     }
 
     .hero {
-        padding: 28px 10px 20px 10px;
+        padding: 28px 30px;
+        border-radius: 24px;
+        background:
+            linear-gradient(
+                135deg,
+                #101a33 0%,
+                #182b55 52%,
+                #123c58 100%
+            );
+        color: white;
+        margin-bottom: 22px;
+        box-shadow:
+            0 12px 35px rgba(15, 31, 62, 0.20);
     }
 
-    .hero h1 {
-        font-size: 3rem;
+    .hero-title {
+        font-size: 38px;
+        line-height: 1.05;
+        font-weight: 800;
+        letter-spacing: -1px;
         margin-bottom: 8px;
-        letter-spacing: -2px;
     }
 
-    .hero p {
-        font-size: 1.1rem;
-        color: #667085;
-        max-width: 760px;
+    .hero-subtitle {
+        color: rgba(255,255,255,0.78);
+        font-size: 16px;
+        margin-bottom: 0;
     }
 
-    .answer-box {
-        background: white;
-        border: 1px solid #e5e7eb;
+    .section-title {
+        font-size: 20px;
+        font-weight: 750;
+        margin: 8px 0 12px 0;
+    }
+
+    div[data-testid="stChatMessage"] {
         border-radius: 18px;
-        padding: 24px;
-        margin-top: 10px;
-        box-shadow: 0 5px 20px rgba(0,0,0,0.04);
+        padding: 4px 8px;
     }
 
-    .feature-title {
-        font-weight: 700;
-        font-size: 1.05rem;
-    }
-
-    .small-muted {
-        color: #6b7280;
-        font-size: 0.88rem;
+    .footer-note {
+        text-align: center;
+        color: #7b8798;
+        font-size: 12px;
+        padding-top: 12px;
     }
 
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 
 # ============================================================
-# HELPER FUNCTIONS
+# API HEADERS
 # ============================================================
 
-def clean_text(text):
-    if not text:
-        return ""
+def headers() -> Dict[str, str]:
 
-    text = str(text)
+    return {
+        "Authorization":
+            f"Bearer {OPENROUTER_API_KEY}",
 
-    # Remove accidental JSON fences
-    text = text.replace("```json", "")
-    text = text.replace("```", "")
+        "Content-Type":
+            "application/json",
 
-    return text.strip()
+        "HTTP-Referer":
+            APP_URL,
 
-
-def detect_service(user_text):
-    """
-    Detect likely service from the user's message.
-    This is only used for selecting a verified source link.
-    """
-
-    text = user_text.lower()
-
-    patterns = {
-        "birth_certificate": [
-            "birth certificate",
-            "birth registration",
-            "born certificate"
-        ],
-
-        "death_certificate": [
-            "death certificate",
-            "death registration"
-        ],
-
-        "income_certificate": [
-            "income certificate",
-            "income proof certificate"
-        ],
-
-        "caste_certificate": [
-            "caste certificate",
-            "community certificate"
-        ],
-
-        "residence_certificate": [
-            "residence certificate",
-            "domicile certificate",
-            "residential certificate"
-        ],
-
-        "driving_license": [
-            "driving licence",
-            "driving license",
-            "dl renewal",
-            "driving test"
-        ],
-
-        "passport": [
-            "passport",
-            "passport application",
-            "passport renewal"
-        ],
-
-        "aadhaar": [
-            "aadhaar",
-            "aadhar",
-            "uidai"
-        ],
-
-        "government_schemes": [
-            "government scheme",
-            "govt scheme",
-            "welfare scheme",
-            "scheme eligibility"
-        ],
-
-        "public_grievance": [
-            "complaint",
-            "grievance",
-            "complain about",
-            "report a problem",
-            "municipal complaint"
-        ],
-
-        "property_tax": [
-            "property tax",
-            "house tax"
-        ],
-
-        "water_connection": [
-            "water connection",
-            "new water connection",
-            "water supply"
-        ],
-
-        "voter_service": [
-            "voter id",
-            "voter card",
-            "voter registration",
-            "election card"
-        ],
-
-        "education_scholarship": [
-            "scholarship",
-            "education scholarship",
-            "epass",
-            "e-pass"
-        ],
-
-        "employment": [
-            "employment service",
-            "job registration",
-            "employment registration"
-        ],
-
-        "railway": [
-            "railway",
-            "train ticket",
-            "irctc"
-        ],
-
-        "land_services": [
-            "land record",
-            "land records",
-            "property registration",
-            "land service"
-        ]
+        "X-Title":
+            "NextStep AI",
     }
 
-    for service_key, keywords in patterns.items():
-        for keyword in keywords:
-            if keyword in text:
-                return service_key
+
+# ============================================================
+# JSON EXTRACTION
+# ============================================================
+
+def extract_json(
+    text: str
+) -> Optional[Dict[str, Any]]:
+
+    if not text:
+
+        return None
+
+    cleaned = text.strip()
+
+    cleaned = re.sub(
+        r"^```(?:json)?\s*",
+        "",
+        cleaned,
+        flags=re.I
+    )
+
+    cleaned = re.sub(
+        r"\s*```$",
+        "",
+        cleaned
+    ).strip()
+
+    try:
+
+        value = json.loads(cleaned)
+
+        if isinstance(value, dict):
+
+            return value
+
+    except json.JSONDecodeError:
+
+        pass
+
+    match = re.search(
+        r"\{.*\}",
+        cleaned,
+        flags=re.DOTALL
+    )
+
+    if match:
+
+        try:
+
+            value = json.loads(
+                match.group(0)
+            )
+
+            if isinstance(value, dict):
+
+                return value
+
+        except json.JSONDecodeError:
+
+            pass
 
     return None
 
 
-def looks_like_service_request(user_text):
-    """
-    Decide whether a direct official source should be shown.
-    """
+# ============================================================
+# LIST NORMALIZER
+# ============================================================
 
-    text = user_text.lower().strip()
+def normalize_list(
+    value: Any
+) -> List[str]:
 
-    service_words = [
-        "apply",
-        "application",
-        "certificate",
-        "register",
-        "registration",
-        "renew",
-        "renewal",
-        "license",
-        "licence",
-        "scheme",
-        "complaint",
-        "grievance",
-        "tax",
-        "connection",
-        "passport",
-        "aadhaar",
-        "voter",
-        "scholarship",
-        "permit",
-        "document",
-        "government service"
-    ]
+    if value is None:
 
-    return any(word in text for word in service_words)
+        return []
+
+    if isinstance(value, list):
+
+        return [
+            str(item).strip()
+            for item in value
+            if str(item).strip()
+        ]
+
+    if isinstance(value, str):
+
+        if value.strip():
+
+            return [
+                value.strip()
+            ]
+
+    return []
 
 
-def get_conversation_context():
-    """
-    Keep context short to reduce token usage and improve speed.
-    """
+# ============================================================
+# RESULT NORMALIZER
+# ============================================================
 
-    recent = st.session_state.messages[-6:]
+def normalize_result(
+    data: Dict[str, Any],
+    fallback_transcript: str = ""
+) -> Dict[str, Any]:
 
-    context = []
+    intent = str(
+        data.get(
+            "intent",
+            "general"
+        )
+    ).strip().lower()
 
-    for message in recent:
-        role = message.get("role")
+    if intent not in {
+        "general",
+        "clarification",
+        "service_request"
+    }:
 
-        if role not in ["user", "assistant"]:
-            continue
+        intent = "general"
 
-        content = message.get("content", "")
+    service_key = data.get(
+        "service_key"
+    )
 
-        if not content:
-            continue
+    if service_key is not None:
 
-        context.append(
-            f"{role.upper()}: {content[:1800]}"
+        service_key = str(
+            service_key
+        ).strip()
+
+        if service_key not in SERVICE_LINKS:
+
+            service_key = None
+
+    if intent != "service_request":
+
+        service_key = None
+
+    return {
+
+        "intent":
+            intent,
+
+        "service_key":
+            service_key,
+
+        "title":
+            str(
+                data.get(
+                    "title",
+                    "Your Next Step"
+                )
+            ).strip(),
+
+        "summary":
+            str(
+                data.get(
+                    "summary",
+                    ""
+                )
+            ).strip(),
+
+        "steps":
+            normalize_list(
+                data.get(
+                    "steps"
+                )
+            ),
+
+        "documents":
+            normalize_list(
+                data.get(
+                    "documents"
+                )
+            ),
+
+        "next_action":
+            str(
+                data.get(
+                    "next_action",
+                    ""
+                )
+            ).strip(),
+
+        "transcript":
+            str(
+                data.get(
+                    "transcript",
+                    fallback_transcript
+                )
+            ).strip(),
+    }
+
+
+# ============================================================
+# CONVERSATION HISTORY FOR AI
+# ============================================================
+
+def conversation_for_ai():
+
+    history = []
+
+    for message in st.session_state.messages[-12:]:
+
+        role = message.get(
+            "role"
         )
 
-    return "\n".join(context)
+        if role == "user":
+
+            history.append(
+                {
+                    "role": "user",
+                    "content":
+                        message.get(
+                            "content",
+                            ""
+                        )
+                }
+            )
+
+        elif role == "assistant":
+
+            history.append(
+                {
+                    "role": "assistant",
+                    "content":
+                        message.get(
+                            "summary",
+                            message.get(
+                                "content",
+                                ""
+                            )
+                        )
+                }
+            )
+
+    return history
 
 
 # ============================================================
-# OPENROUTER REQUEST
+# SIMPLE SERVICE FALLBACK
 # ============================================================
 
-def ask_openrouter(user_text):
+def service_key_from_text(
+    text: str
+) -> Optional[str]:
+
+    lowered = text.lower()
+
+    for alias, key in SERVICE_ALIASES.items():
+
+        if alias in lowered:
+
+            return key
+
+    return None
+
+
+# ============================================================
+# FALLBACK AI RESULT
+# ============================================================
+
+def fallback_result(
+    user_text: str
+):
+
+    key = service_key_from_text(
+        user_text
+    )
+
+    if key:
+
+        name, _ = SERVICE_LINKS[key]
+
+        return {
+
+            "intent":
+                "service_request",
+
+            "service_key":
+                key,
+
+            "title":
+                f"Getting help with {name}",
+
+            "summary":
+                (
+                    f"I can help you navigate "
+                    f"{name}. The exact process "
+                    f"can vary by state or authority."
+                ),
+
+            "steps": [
+
+                "Confirm your state or the authority handling the service.",
+
+                "Use the official service link below and check the current requirements.",
+
+                "Complete the application or request and keep the reference number for tracking.",
+
+            ],
+
+            "documents": [],
+
+            "next_action":
+                (
+                    "Tell me your state or city "
+                    "if you want more specific guidance."
+                ),
+
+            "transcript":
+                user_text,
+        }
+
+    return {
+
+        "intent":
+            "general",
+
+        "service_key":
+            None,
+
+        "title":
+            "How can I help?",
+
+        "summary":
+            (
+                "Tell me what public-service "
+                "problem you are trying to solve, "
+                "and I will help identify the "
+                "next step."
+            ),
+
+        "steps": [],
+
+        "documents": [],
+
+        "next_action":
+            "Describe what you need in your own words.",
+
+        "transcript":
+            user_text,
+    }
+
+
+# ============================================================
+# ERROR RESULT
+# ============================================================
+
+def api_error_result(
+    title: str,
+    summary: str,
+    detail: str = ""
+):
+
+    return {
+
+        "intent":
+            "error",
+
+        "service_key":
+            None,
+
+        "title":
+            title,
+
+        "summary":
+            summary,
+
+        "steps": [],
+
+        "documents": [],
+
+        "next_action":
+            "Please try again in a moment.",
+
+        "transcript":
+            "",
+
+        "error":
+            detail,
+    }
+
+
+# ============================================================
+# OPENROUTER CHAT
+# ============================================================
+
+def get_ai_response(
+    user_text: str
+):
 
     if not OPENROUTER_API_KEY:
-        return {
-            "success": False,
-            "error": "OPENROUTER_API_KEY is missing from Streamlit Secrets."
-        }
 
-    current_time = time.time()
+        return api_error_result(
 
-    # Prevent accidental duplicate submissions
-    if current_time - st.session_state.last_request_time < 1.2:
-        return {
-            "success": False,
-            "error": "Please wait a moment before sending another request."
-        }
+            "API key not connected",
 
-    st.session_state.last_request_time = current_time
-
-    conversation_context = get_conversation_context()
+            (
+                "Add OPENROUTER_API_KEY "
+                "to Streamlit Secrets before "
+                "running the AI."
+            )
+        )
 
     messages = [
+
         {
-            "role": "system",
-            "content": SYSTEM_INSTRUCTION
+            "role":
+                "system",
+
+            "content":
+                SYSTEM_INSTRUCTION,
         }
+
     ]
 
-    if conversation_context:
-        messages.append(
-            {
-                "role": "system",
-                "content": (
-                    "Recent conversation context:\n\n"
-                    + conversation_context
-                )
-            }
-        )
+    messages.extend(
+        conversation_for_ai()
+    )
 
     messages.append(
         {
-            "role": "user",
-            "content": user_text
+            "role":
+                "user",
+
+            "content":
+                user_text,
         }
     )
 
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://streamlit.io/",
-        "X-Title": "NextStep AI"
-    }
-
     payload = {
-        "model": MODEL_NAME,
-        "messages": messages,
-        "temperature": 0.2,
-        "max_tokens": 1200
+
+        "model":
+            CHAT_MODEL,
+
+        "messages":
+            messages,
+
+        "temperature":
+            0.2,
+
+        "max_tokens":
+            900,
     }
 
     try:
 
         response = requests.post(
-            OPENROUTER_URL,
-            headers=headers,
+
+            OPENROUTER_CHAT_URL,
+
+            headers=headers(),
+
             json=payload,
-            timeout=45
+
+            timeout=60,
         )
-
-        # ----------------------------------------------------
-        # RATE LIMIT
-        # ----------------------------------------------------
-
-        if response.status_code == 429:
-            return {
-                "success": False,
-                "error": (
-                    "OpenRouter free-tier limit has been reached. "
-                    "The free plan currently allows 50 requests per day. "
-                    "Please try again later."
-                )
-            }
-
-        # ----------------------------------------------------
-        # AUTH ERROR
-        # ----------------------------------------------------
-
-        if response.status_code in [401, 403]:
-            return {
-                "success": False,
-                "error": (
-                    "OpenRouter rejected the API key. "
-                    "Please check OPENROUTER_API_KEY in Streamlit Secrets."
-                )
-            }
-
-        # ----------------------------------------------------
-        # OTHER HTTP ERROR
-        # ----------------------------------------------------
 
         if response.status_code != 200:
 
-            try:
-                error_data = response.json()
+            detail = response.text[:1000]
 
-                message = (
-                    error_data
-                    .get("error", {})
-                    .get("message", "")
+            if response.status_code == 429:
+
+                return api_error_result(
+
+                    "AI is temporarily rate-limited",
+
+                    (
+                        "OpenRouter has temporarily "
+                        "limited this request. "
+                        "Wait a moment and try again."
+                    ),
+
+                    detail,
                 )
 
-            except Exception:
-                message = response.text
+            return api_error_result(
 
-            return {
-                "success": False,
-                "error": (
-                    f"OpenRouter error {response.status_code}: "
-                    f"{message}"
-                )
-            }
+                f"AI request failed "
+                f"({response.status_code})",
 
-        # ----------------------------------------------------
-        # PARSE RESPONSE
-        # ----------------------------------------------------
+                (
+                    "The AI service returned an "
+                    "error while processing your request."
+                ),
+
+                detail,
+            )
 
         data = response.json()
 
-        choices = data.get("choices", [])
+        choices = data.get(
+            "choices"
+        ) or []
 
         if not choices:
-            return {
-                "success": False,
-                "error": "OpenRouter returned no AI response."
-            }
 
-        message = choices[0].get("message", {})
+            return api_error_result(
 
-        answer = message.get("content", "")
+                "Empty AI response",
 
-        if isinstance(answer, list):
+                (
+                    "The AI did not return a usable "
+                    "answer. Please try again."
+                ),
 
-            parts = []
-
-            for item in answer:
-
-                if isinstance(item, dict):
-                    if item.get("type") == "text":
-                        parts.append(
-                            item.get("text", "")
-                        )
-
-                elif isinstance(item, str):
-                    parts.append(item)
-
-            answer = "\n".join(parts)
-
-        answer = clean_text(answer)
-
-        if not answer:
-            return {
-                "success": False,
-                "error": "The AI returned an empty response."
-            }
-
-        st.session_state.request_count += 1
-
-        return {
-            "success": True,
-            "answer": answer
-        }
-
-    except requests.exceptions.Timeout:
-
-        return {
-            "success": False,
-            "error": (
-                "The AI service took too long to respond. "
-                "Please try again."
-            )
-        }
-
-    except requests.exceptions.ConnectionError:
-
-        return {
-            "success": False,
-            "error": (
-                "Could not connect to OpenRouter. "
-                "Please check the Streamlit connection."
-            )
-        }
-
-    except Exception as error:
-
-        return {
-            "success": False,
-            "error": f"Unexpected error: {error}"
-        }
-
-
-# ============================================================
-# DISPLAY AI RESPONSE
-# ============================================================
-
-def display_answer(answer, user_text):
-
-    st.markdown(
-        '<div class="answer-box">',
-        unsafe_allow_html=True
-    )
-
-    st.markdown("### 🤖 NextStep AI")
-
-    st.markdown(answer)
-
-    st.markdown(
-        '</div>',
-        unsafe_allow_html=True
-    )
-
-    # --------------------------------------------------------
-    # SOURCE LINK
-    # Only show it when this looks like an actual service
-    # request.
-    # --------------------------------------------------------
-
-    if looks_like_service_request(user_text):
-
-        service_key = detect_service(user_text)
-
-        if service_key and service_key in SERVICE_LINKS:
-
-            service = SERVICE_LINKS[service_key]
-
-            st.markdown("#### 🔗 Official source")
-
-            st.link_button(
-                service["label"],
-                service["url"],
-                use_container_width=False
+                json.dumps(data)[:1000],
             )
 
-            st.caption(
-                f"Source for: {service['name']}"
-            )
+        content = (
+            choices[0]
+            .get("message", {})
+            .get("content", "")
+        )
 
+        parsed = extract_json(
+            content
+        )
 
-# ============================================================
-# PROCESS MESSAGE
-# ============================================================
+        if parsed is None:
 
-def process_message(user_text):
-
-    user_text = user_text.strip()
-
-    if not user_text:
-        return
-
-    # Add user message
-    st.session_state.messages.append(
-        {
-            "role": "user",
-            "content": user_text
-        }
-    )
-
-    # Show user message immediately
-    with st.chat_message("user"):
-        st.markdown(user_text)
-
-    # AI response
-    with st.chat_message("assistant"):
-
-        with st.spinner("NextStep AI is thinking..."):
-
-            result = ask_openrouter(user_text)
-
-        if result["success"]:
-
-            answer = result["answer"]
-
-            st.session_state.messages.append(
-                {
-                    "role": "assistant",
-                    "content": answer
-                }
-            )
-
-            display_answer(
-                answer,
+            return fallback_result(
                 user_text
             )
 
-        else:
+        return normalize_result(
+            parsed,
+            user_text
+        )
 
-            error_message = result["error"]
+    except requests.Timeout:
 
-            st.error(
-                f"⚠️ {error_message}"
+        return api_error_result(
+
+            "Request timed out",
+
+            (
+                "The AI took too long to respond. "
+                "Please try the request again."
             )
+        )
+
+    except requests.RequestException as exc:
+
+        return api_error_result(
+
+            "Network connection problem",
+
+            (
+                "NextStep AI could not reach "
+                "OpenRouter right now."
+            ),
+
+            str(exc),
+        )
+
+    except Exception as exc:
+
+        return api_error_result(
+
+            "Unexpected AI error",
+
+            (
+                "Something unexpected happened "
+                "while processing your request."
+            ),
+
+            str(exc),
+        )
+
+
+# ============================================================
+# AUDIO FORMAT
+# ============================================================
+
+def audio_format(
+    uploaded_file: Any
+) -> str:
+
+    mime = (
+        getattr(
+            uploaded_file,
+            "type",
+            ""
+        )
+        or ""
+    ).lower()
+
+    mapping = {
+
+        "audio/wav":
+            "wav",
+
+        "audio/x-wav":
+            "wav",
+
+        "audio/wave":
+            "wav",
+
+        "audio/mpeg":
+            "mp3",
+
+        "audio/mp3":
+            "mp3",
+
+        "audio/mp4":
+            "m4a",
+
+        "audio/x-m4a":
+            "m4a",
+
+        "audio/ogg":
+            "ogg",
+
+        "audio/webm":
+            "webm",
+
+        "audio/aac":
+            "aac",
+
+        "audio/flac":
+            "flac",
+    }
+
+    return mapping.get(
+        mime,
+        "wav"
+    )
+
+
+# ============================================================
+# OPENROUTER SPEECH-TO-TEXT
+# ============================================================
+
+def transcribe_audio(
+    audio_file: Any
+) -> str:
+
+    if not OPENROUTER_API_KEY:
+
+        raise RuntimeError(
+            "OPENROUTER_API_KEY is missing "
+            "from Streamlit Secrets."
+        )
+
+    raw = audio_file.getvalue()
+
+    if not raw:
+
+        raise RuntimeError(
+            "The microphone recording was empty."
+        )
+
+    payload = {
+
+        "model":
+            STT_MODEL,
+
+        "input_audio": {
+
+            "data":
+                base64.b64encode(
+                    raw
+                ).decode("utf-8"),
+
+            "format":
+                audio_format(
+                    audio_file
+                ),
+        },
+
+        "language":
+            "en",
+    }
+
+    response = requests.post(
+
+        OPENROUTER_STT_URL,
+
+        headers=headers(),
+
+        json=payload,
+
+        timeout=60,
+    )
+
+    if response.status_code != 200:
+
+        raise RuntimeError(
+
+            "Speech transcription failed "
+            f"({response.status_code}): "
+            f"{response.text[:800]}"
+        )
+
+    result = response.json()
+
+    transcript = str(
+        result.get(
+            "text",
+            ""
+        )
+    ).strip()
+
+    if not transcript:
+
+        raise RuntimeError(
+            "No speech was detected in the recording."
+        )
+
+    return transcript
+
+
+# ============================================================
+# SAVE CONVERSATION
+# ============================================================
+
+def add_exchange(
+    user_text: str,
+    result: Dict[str, Any]
+):
+
+    st.session_state.messages.append(
+
+        {
+            "role":
+                "user",
+
+            "content":
+                user_text,
+        }
+    )
+
+    st.session_state.messages.append(
+
+        {
+            "role":
+                "assistant",
+
+            "content":
+                result.get(
+                    "summary",
+                    ""
+                ),
+
+            **result,
+        }
+    )
+
+
+# ============================================================
+# NEW CONVERSATION
+# ============================================================
+
+def start_new_conversation():
+
+    st.session_state.messages = []
+
+    st.session_state.pending_prompt = None
+
+    st.session_state.conversation_name = (
+        "New conversation"
+    )
+
+    st.session_state.last_audio_signature = None
+
+    st.session_state.voice_key += 1
 
 
 # ============================================================
@@ -866,114 +1210,153 @@ def process_message(user_text):
 with st.sidebar:
 
     st.markdown(
-        """
-        <div style="text-align:center; padding:10px 0 20px 0;">
-            <div style="font-size:3rem;">🤖</div>
-            <h2 style="margin:0;">NextStep AI</h2>
-            <p style="color:#cbd5e1;">
-                Public Service Assistant
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True
+        "# ✦ NextStep AI"
+    )
+
+    st.caption(
+        "Your intelligent guide to public services"
     )
 
     if st.button(
-        "➕ New Conversation",
-        use_container_width=True
+        "＋  New conversation",
+        use_container_width=True,
+        type="primary",
     ):
 
-        st.session_state.messages = []
+        start_new_conversation()
 
         st.rerun()
 
     st.divider()
 
-    st.markdown("### 🕘 Conversation")
+    st.markdown(
+        "### 💬 Recent conversations"
+    )
 
-    if st.session_state.messages:
+    user_messages = [
 
-        user_messages = [
-            m["content"]
-            for m in st.session_state.messages
-            if m["role"] == "user"
-        ]
+        m["content"]
 
-        for index, message in enumerate(
-            user_messages[-8:],
-            start=1
-        ):
+        for m in st.session_state.messages
 
-            preview = message[:42]
+        if m.get("role") == "user"
 
-            if len(message) > 42:
-                preview += "..."
+    ]
 
-            st.caption(
-                f"{index}. {preview}"
-            )
+    if not user_messages:
+
+        st.caption(
+            "Your current conversation "
+            "will appear here."
+        )
 
     else:
 
-        st.caption(
-            "Your recent questions will appear here."
+        for index, text in enumerate(
+            user_messages[-7:],
+            start=1
+        ):
+
+            label = (
+                text
+                .replace("🎙️", "")
+                .strip()
+                .replace("\n", " ")
+            )
+
+            if len(label) > 38:
+
+                label = (
+                    label[:38] + "…"
+                )
+
+            st.caption(
+                f"{index}. {label}"
+            )
+
+    st.divider()
+
+    st.markdown(
+        "### 🇮🇳 India-wide services"
+    )
+
+    st.caption(
+        "Central, state and local government "
+        "services can be routed through official "
+        "government portals."
+    )
+
+    if st.button(
+        "⚙️ Settings",
+        use_container_width=True
+    ):
+
+        st.session_state.show_settings = (
+            not st.session_state.show_settings
         )
 
     st.divider()
 
-    st.markdown("### ✨ What I can help with")
-
-    st.caption("Certificates")
-    st.caption("Government schemes")
-    st.caption("Public complaints")
-    st.caption("Licences & permits")
-    st.caption("Municipal services")
-    st.caption("Education & scholarships")
-    st.caption("Many other public services")
-
-    st.divider()
-
     st.caption(
-        "Powered by OpenRouter"
-    )
-
-    st.caption(
-        f"Requests this session: "
-        f"{st.session_state.request_count}"
+        "🔐 API keys stay in Streamlit Secrets, "
+        "not in this code."
     )
 
 
 # ============================================================
-# TOP BRANDING
+# SETTINGS
 # ============================================================
 
-top_left, top_right = st.columns(
-    [7, 3],
-    vertical_alignment="center"
+if st.session_state.show_settings:
+
+    with st.expander(
+        "⚙️ NextStep AI settings",
+        expanded=True
+    ):
+
+        st.write(
+            "**AI model:** OpenRouter Free Router"
+        )
+
+        st.write(
+            "**Voice input:** OpenRouter Whisper"
+        )
+
+        st.write(
+            "**Service coverage:** India-wide"
+        )
+
+        st.caption(
+            "Voice transcription uses a separate "
+            "STT request. Current OpenRouter STT "
+            "pricing depends on the selected model."
+        )
+
+
+# ============================================================
+# HERO
+# ============================================================
+
+st.markdown(
+
+    """
+    <div class="hero">
+
+        <div class="hero-title">
+            ✦ NextStep AI
+        </div>
+
+        <div class="hero-subtitle">
+            Understand the problem.
+            Find the service.
+            Take the next step.
+        </div>
+
+    </div>
+    """,
+
+    unsafe_allow_html=True,
 )
-
-with top_left:
-
-    st.markdown(
-        """
-        <div class="brand-title">
-            🤖 NextStep AI
-        </div>
-        <div class="brand-subtitle">
-            Your intelligent guide to public services
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-with top_right:
-
-    st.caption(
-        "🟢 AI Assistant"
-    )
-
-
-st.divider()
 
 
 # ============================================================
@@ -983,214 +1366,332 @@ st.divider()
 if not st.session_state.messages:
 
     st.markdown(
-        """
-        <div class="hero">
-            <h1>What's your next step?</h1>
-            <p>
-                Tell me what you need help with.
-                You don't need to know the exact government
-                service name. I'll help you figure it out.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True
+        '<div class="section-title">'
+        'What can I help you with today?'
+        '</div>',
+        unsafe_allow_html=True,
     )
 
-    st.markdown("### 💡 Try asking")
+    st.caption(
+        "You do not need to know the exact "
+        "government service name. Just describe "
+        "what you need."
+    )
 
-    prompt_col1, prompt_col2 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
 
-    with prompt_col1:
+    suggestions = [
 
-        if st.button(
-            "📄 I need an income certificate",
-            use_container_width=True
-        ):
+        (
+            "📄",
+            "Certificates",
+            "I need help getting a government certificate."
+        ),
 
-            st.session_state.pending_prompt = (
-                "I need to apply for an income certificate."
-            )
+        (
+            "🪪",
+            "Aadhaar",
+            "I need help with an Aadhaar service."
+        ),
 
-            st.rerun()
+        (
+            "🚗",
+            "Driving licence",
+            "I want help with a driving licence."
+        ),
 
-        if st.button(
-            "🪪 How do I get a birth certificate?",
-            use_container_width=True
-        ):
+        (
+            "🎓",
+            "Scholarship",
+            "I want to find a government scholarship."
+        ),
 
-            st.session_state.pending_prompt = (
-                "How do I get a birth certificate?"
-            )
+        (
+            "🛂",
+            "Passport",
+            "I want help applying for a passport."
+        ),
 
-            st.rerun()
+        (
+            "🏛️",
+            "Government scheme",
+            "I want to know which government scheme may help me."
+        ),
+    ]
 
-        if st.button(
-            "🎓 I need a scholarship",
-            use_container_width=True
-        ):
+    for index, (
+        icon,
+        label,
+        prompt
+    ) in enumerate(suggestions):
 
-            st.session_state.pending_prompt = (
-                "I need help finding a government scholarship."
-            )
+        column = [
+            c1,
+            c2,
+            c3
+        ][index % 3]
 
-            st.rerun()
+        with column:
 
-    with prompt_col2:
+            if st.button(
+                f"{icon}  {label}",
+                key=f"suggestion_{index}",
+                use_container_width=True,
+            ):
 
-        if st.button(
-            "🚗 I need a driving licence",
-            use_container_width=True
-        ):
-
-            st.session_state.pending_prompt = (
-                "I need help applying for a driving licence."
-            )
-
-            st.rerun()
-
-        if st.button(
-            "📢 I want to file a complaint",
-            use_container_width=True
-        ):
-
-            st.session_state.pending_prompt = (
-                "I want to file a public service complaint."
-            )
-
-            st.rerun()
-
-        if st.button(
-            "💬 I don't know which service I need",
-            use_container_width=True
-        ):
-
-            st.session_state.pending_prompt = (
-                "I have a government-related problem, "
-                "but I don't know which service I need."
-            )
-
-            st.rerun()
-
-    st.markdown("")
-
-    feature1, feature2, feature3 = st.columns(3)
-
-    with feature1:
-
-        st.info(
-            "**🧠 Understands your need**\n\n"
-            "Describe your problem naturally. "
-            "You don't need to know the service name."
-        )
-
-    with feature2:
-
-        st.info(
-            "**🪜 Gives clear next steps**\n\n"
-            "Get simple, practical guidance instead "
-            "of confusing government terminology."
-        )
-
-    with feature3:
-
-        st.info(
-            "**🔗 Connects you to sources**\n\n"
-            "For clear service requests, the app "
-            "shows a relevant official source."
-        )
-
-
-# ============================================================
-# DISPLAY EXISTING CHAT
-# ============================================================
-
-else:
-
-    st.markdown("### 💬 Your conversation")
-
-    for message in st.session_state.messages:
-
-        role = message.get("role")
-        content = message.get("content", "")
-
-        if role == "user":
-
-            with st.chat_message("user"):
-                st.markdown(content)
-
-        elif role == "assistant":
-
-            with st.chat_message("assistant"):
-
-                st.markdown(
-                    '<div class="answer-box">',
-                    unsafe_allow_html=True
+                st.session_state.pending_prompt = (
+                    prompt
                 )
 
-                st.markdown(content)
+                st.rerun()
 
-                st.markdown(
-                    '</div>',
-                    unsafe_allow_html=True
-                )
+    st.divider()
+
+    st.markdown(
+        '<div class="section-title">'
+        'Why NextStep AI?'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    a, b, c = st.columns(3)
+
+    with a:
+
+        st.info(
+            "🧠 **Understand**\n\n"
+            "Describe your need naturally. "
+            "The AI identifies what you are "
+            "actually trying to do."
+        )
+
+    with b:
+
+        st.info(
+            "🧭 **Guide**\n\n"
+            "Get clear steps instead of digging "
+            "through complicated government information."
+        )
+
+    with c:
+
+        st.info(
+            "🔗 **Connect**\n\n"
+            "When a service is identified, the app "
+            "gives you an official government source."
+        )
 
 
 # ============================================================
-# PENDING PROMPT
+# CHAT HISTORY
+# ============================================================
+
+for message in st.session_state.messages:
+
+    role = message.get(
+        "role"
+    )
+
+    if role == "user":
+
+        with st.chat_message(
+            "user",
+            avatar="👤"
+        ):
+
+            st.write(
+                message.get(
+                    "content",
+                    ""
+                )
+            )
+
+        continue
+
+    with st.chat_message(
+        "assistant",
+        avatar="✦"
+    ):
+
+        if message.get(
+            "intent"
+        ) == "error":
+
+            st.error(
+                message.get(
+                    "summary",
+                    "Something went wrong."
+                )
+            )
+
+            continue
+
+        st.markdown(
+            f"### {message.get(
+                'title',
+                'Your Next Step'
+            )}"
+        )
+
+        if message.get(
+            "summary"
+        ):
+
+            st.info(
+                message["summary"]
+            )
+
+        steps = message.get(
+            "steps",
+            []
+        )
+
+        if steps:
+
+            st.markdown(
+                "#### 🧭 Next steps"
+            )
+
+            for index, step in enumerate(
+                steps,
+                start=1
+            ):
+
+                st.markdown(
+                    f"**{index}.** {step}"
+                )
+
+        documents = message.get(
+            "documents",
+            []
+        )
+
+        if documents:
+
+            st.markdown(
+                "#### 📋 Keep these ready"
+            )
+
+            for document in documents:
+
+                st.markdown(
+                    f"• {document}"
+                )
+
+        if message.get(
+            "next_action"
+        ):
+
+            st.success(
+                "➡️ **Next action:** "
+                + message["next_action"]
+            )
+
+        service_key = message.get(
+            "service_key"
+        )
+
+        if (
+            message.get("intent")
+            == "service_request"
+            and service_key
+            in SERVICE_LINKS
+        ):
+
+            (
+                service_name,
+                service_url
+            ) = SERVICE_LINKS[
+                service_key
+            ]
+
+            st.link_button(
+
+                f"🔗 Open official "
+                f"{service_name} source",
+
+                service_url,
+
+                use_container_width=True,
+            )
+
+            st.caption(
+                "Official government source. "
+                "State/local procedures may vary."
+            )
+
+
+# ============================================================
+# PROCESS SUGGESTED PROMPT
 # ============================================================
 
 if st.session_state.pending_prompt:
 
-    pending = st.session_state.pending_prompt
+    prompt = (
+        st.session_state.pending_prompt
+    )
 
     st.session_state.pending_prompt = None
 
-    process_message(pending)
+    with st.spinner(
+        "✦ NextStep AI is thinking..."
+    ):
+
+        result = get_ai_response(
+            prompt
+        )
+
+    add_exchange(
+        prompt,
+        result
+    )
+
+    st.rerun()
 
 
 # ============================================================
-# INPUT AREA
+# TEXT INPUT
 # ============================================================
 
-st.markdown("")
+st.divider()
 
-st.markdown("### Ask NextStep AI")
+st.markdown(
+    '<div class="section-title">'
+    'Ask NextStep AI'
+    '</div>',
+    unsafe_allow_html=True,
+)
 
-input_col, voice_col = st.columns(
+text_col, send_col = st.columns(
     [8, 1],
     vertical_alignment="bottom"
 )
 
-with input_col:
+with text_col:
 
-    with st.form(
-        "message_form",
-        clear_on_submit=True
-    ):
+    typed_message = st.text_input(
 
-        typed_message = st.text_input(
-            "Your question",
-            placeholder=(
-                "Tell me what you need help with..."
-            ),
-            label_visibility="collapsed"
-        )
+        "Your message",
 
-        submitted = st.form_submit_button(
-            "Send ➜",
-            use_container_width=True
-        )
+        placeholder=(
+            "Example: I need to apply "
+            "for an income certificate..."
+        ),
 
+        label_visibility="collapsed",
 
-with voice_col:
+        key="message_input",
+    )
 
-    audio_input = st.audio_input(
-        "🎙️",
-        sample_rate=16000,
-        help=(
-            "Record your request. "
-            "Voice transcription requires a speech-to-text service."
-        )
+with send_col:
+
+    send_clicked = st.button(
+
+        "Send",
+
+        use_container_width=True,
+
+        type="primary",
     )
 
 
@@ -1198,22 +1699,145 @@ with voice_col:
 # TEXT SUBMISSION
 # ============================================================
 
-if submitted and typed_message:
+if send_clicked:
 
-    process_message(
-        typed_message
-    )
+    message = typed_message.strip()
+
+    if not message:
+
+        st.warning(
+            "Please type a message first, "
+            "or use the microphone below."
+        )
+
+    else:
+
+        with st.spinner(
+            "✦ NextStep AI is thinking..."
+        ):
+
+            result = get_ai_response(
+                message
+            )
+
+        add_exchange(
+            message,
+            result
+        )
+
+        st.session_state.message_input = ""
+
+        st.rerun()
 
 
 # ============================================================
-# MICROPHONE NOTICE
+# VOICE INPUT
 # ============================================================
 
-if audio_input is not None:
+voice_left, voice_right = st.columns(
+    [1, 4],
+    vertical_alignment="center"
+)
 
-    st.info(
-        "🎙️ Your recording was captured. "
-        "The current OpenRouter free router handles text/image input, "
-        "so voice transcription is not connected yet. "
-        "You can type the same request in the search box."
+with voice_left:
+
+    st.markdown(
+        "**🎙️ Voice assistant**"
     )
+
+with voice_right:
+
+    st.caption(
+        "Record a short request. "
+        "NextStep AI will transcribe it "
+        "and then answer it."
+    )
+
+
+voice_input = st.audio_input(
+
+    "Record your request",
+
+    sample_rate=16000,
+
+    key=(
+        f"voice_input_"
+        f"{st.session_state.voice_key}"
+    ),
+
+    label_visibility="collapsed",
+)
+
+
+# ============================================================
+# VOICE SUBMISSION
+# ============================================================
+
+if voice_input is not None:
+
+    raw_audio = (
+        voice_input.getvalue()
+    )
+
+    signature = str(
+        hash(raw_audio)
+    )
+
+    if (
+        signature
+        != st.session_state.last_audio_signature
+    ):
+
+        st.session_state.last_audio_signature = (
+            signature
+        )
+
+        with st.spinner(
+            "🎙️ Transcribing your request..."
+        ):
+
+            try:
+
+                transcript = transcribe_audio(
+                    voice_input
+                )
+
+                result = get_ai_response(
+                    transcript
+                )
+
+                add_exchange(
+
+                    f"🎙️ {transcript}",
+
+                    result
+                )
+
+                st.session_state.voice_key += 1
+
+                st.rerun()
+
+            except Exception as exc:
+
+                st.error(
+                    "Voice input could not be processed."
+                )
+
+                st.caption(
+                    str(exc)
+                )
+
+
+# ============================================================
+# FOOTER
+# ============================================================
+
+st.markdown(
+
+    '<div class="footer-note">'
+    'NextStep AI • Intelligent guidance for '
+    'public services across India'
+    '</div>',
+
+    unsafe_allow_html=True,
+)
