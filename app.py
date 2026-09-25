@@ -2,8 +2,8 @@ import streamlit as st
 import os
 import time
 import json
-
 import hashlib
+
 from agent import AGENT_STAGES, execute_agent_workflow, get_api_key, transcribe_audio_bytes
 from services_data import SERVICES_DATABASE
 
@@ -13,7 +13,7 @@ from services_data import SERVICES_DATABASE
 # ============================================================
 
 st.set_page_config(
-    page_title="NextStep AI • v2.1 | Government Service Navigation Assistant",
+    page_title="NextStep AI • Smart Assistant | Indian Public Service Navigation",
     page_icon="🏛️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -69,53 +69,57 @@ if "active_progress" not in st.session_state:
 
 st.markdown("""
 <style>
-    /* Main container background */
+    /* Main container background & font */
     .stApp {
-        background-color: #0f172a;
+        background: #0f172a;
         color: #f8fafc;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
-    /* Force readable text colors for headers and text elements */
+    /* Force readable text colors for headers */
     h1, h2, h3, h4, h5, h6 {
         color: #f8fafc !important;
+        font-weight: 700 !important;
     }
 
     /* Button overrides for contrast */
     .stButton > button {
         background-color: #1e293b !important;
         color: #f8fafc !important;
-        border: 1px solid #475569 !important;
+        border: 1px solid #334155 !important;
         border-radius: 8px !important;
         font-weight: 600 !important;
-        transition: all 0.2s ease !important;
+        transition: all 0.2s ease-in-out !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     }
     .stButton > button:hover {
         background-color: #0284c7 !important;
         color: #ffffff !important;
         border-color: #38bdf8 !important;
+        box-shadow: 0 4px 12px rgba(56, 189, 248, 0.25);
     }
 
     /* Navbar Header */
     .nav-header {
         background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        border-bottom: 1px solid #334155;
-        padding: 1.2rem 2rem;
-        border-radius: 12px;
-        margin-bottom: 1rem;
+        border: 1px solid #334155;
+        padding: 1.25rem 2rem;
+        border-radius: 14px;
+        margin-bottom: 1.2rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
     }
 
     .brand-title {
-        font-size: 1.9rem;
+        font-size: 2.1rem;
         font-weight: 800;
         background: linear-gradient(90deg, #38bdf8 0%, #818cf8 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin: 0;
+        letter-spacing: -0.5px;
     }
 
     .brand-tagline {
@@ -129,7 +133,7 @@ st.markdown("""
         background: rgba(56, 189, 248, 0.15);
         color: #38bdf8;
         border: 1px solid rgba(56, 189, 248, 0.4);
-        padding: 4px 10px;
+        padding: 4px 12px;
         border-radius: 12px;
         font-size: 0.78rem;
         font-weight: 700;
@@ -143,6 +147,7 @@ st.markdown("""
         border-radius: 20px;
         font-size: 0.8rem;
         font-weight: 600;
+        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
     }
 
     .badge-central {
@@ -152,18 +157,20 @@ st.markdown("""
         border-radius: 20px;
         font-size: 0.8rem;
         font-weight: 600;
+        box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
     }
 
     /* Progress Visualizer Bar */
     .progress-bar-container {
         background: #1e293b;
         border: 1px solid #334155;
-        border-radius: 10px;
-        padding: 0.8rem 1.2rem;
+        border-radius: 12px;
+        padding: 0.9rem 1.4rem;
         margin: 1rem 0;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
     }
 
     .progress-step {
@@ -181,15 +188,26 @@ st.markdown("""
         font-weight: 700;
     }
 
-    /* Document Card Styling */
-    .doc-card {
+    /* Card Response Container */
+    .card-response {
         background: #1e293b;
         border: 1px solid #334155;
-        border-radius: 10px;
-        padding: 1rem;
-        margin-bottom: 0.8rem;
+        border-radius: 14px;
+        padding: 1.5rem;
+        margin-top: 0.8rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
     }
 
+    .assistant-chat-bubble {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 1.2rem;
+        margin-bottom: 0.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Document Card Styling */
     .doc-tag-req {
         background: rgba(239, 68, 68, 0.2);
         color: #f87171;
@@ -210,25 +228,15 @@ st.markdown("""
         font-weight: 700;
     }
 
-    /* Card Response Container */
-    .card-response {
-        background: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 14px;
-        padding: 1.5rem;
-        margin-top: 0.5rem;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-    }
-
     /* Disclaimer Banner */
     .disclaimer-banner {
         background: rgba(30, 41, 59, 0.8);
         border-left: 4px solid #38bdf8;
-        padding: 0.8rem;
-        border-radius: 6px;
+        padding: 0.9rem;
+        border-radius: 8px;
         font-size: 0.82rem;
         color: #cbd5e1;
-        margin-top: 1.5rem;
+        margin-top: 1.8rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -240,15 +248,15 @@ st.markdown("""
 
 with st.sidebar:
     st.markdown("### 🏛️ NextStep AI Settings")
-    st.caption("AI Public Service Navigation Assistant")
+    st.caption("AI Government Service Assistant")
 
     st.markdown('<span class="version-badge">NextStep AI • v2.1</span>', unsafe_allow_html=True)
     st.divider()
 
     # Language Selector
-    st.markdown("#### 🌐 Language Preference")
+    st.markdown("#### 🌐 Interface Language")
     selected_lang = st.selectbox(
-        "Choose Interface Language:",
+        "Choose Language:",
         ["English", "Telugu (తెలుగు)", "Hindi (हिंदी)"],
         index=0
     )
@@ -372,10 +380,29 @@ with cols[3]:
 
 
 # ============================================================
-# RENDER RESPONSE CARD COMPONENTS
+# RENDER RESPONSE CARD & PROACTIVE OPTIONS
 # ============================================================
 
+def render_proactive_options(options, message_idx):
+    """Renders interactive proactive suggested options as clickable buttons."""
+    if not options:
+        return
+    st.markdown('<div style="margin-top:0.8rem; margin-bottom:0.3rem; font-size:0.85rem; color:#94a3b8; font-weight:600;">💡 Proactive Next Steps — Click an option to proceed:</div>', unsafe_allow_html=True)
+    num_opts = len(options)
+    cols = st.columns(min(num_opts, 4))
+    for opt_idx, opt in enumerate(options):
+        col = cols[opt_idx % len(cols)]
+        with col:
+            clean_opt = opt.strip()
+            # Clean leading bullet if present
+            prompt_trigger = clean_opt[2:].strip() if clean_opt.startswith("• ") else clean_opt
+            if st.button(clean_opt, key=f"proactive_{message_idx}_{opt_idx}", use_container_width=True):
+                st.session_state.pending_prompt = prompt_trigger
+                st.rerun()
+
+
 def render_response_card(res, index):
+    """Renders structured application service card."""
     st.markdown('<div class="card-response">', unsafe_allow_html=True)
 
     # 1. Header & Service
@@ -491,6 +518,37 @@ def render_response_card(res, index):
     st.markdown('</div>', unsafe_allow_html=True)
 
 
+def render_assistant_response(message, idx):
+    """Smart Assistant response renderer based on user intent."""
+    card_data = message.get("card_data")
+
+    if not card_data:
+        st.markdown(message.get("content", ""))
+        return
+
+    intent = card_data.get("intent", "application_intent")
+    a_msg = card_data.get("assistant_message") or card_data.get("situation_understood") or message.get("content")
+    p_options = card_data.get("proactive_options", [])
+
+    # 1. CONVERSATIONAL / CLARIFICATION / PROCESS QA / SERVICE DISCOVERY
+    if intent in ["conversational", "clarification", "process_qa", "general_qa", "service_discovery"]:
+        st.markdown(a_msg)
+
+        # For process QA or service discovery, option to expand service card if available
+        if card_data.get("service_id") not in ["none", "general_public_service"] and card_data.get("steps"):
+            with st.expander(f"📌 View Full Application Workflow for {card_data.get('service_name', 'Service')}"):
+                render_response_card(card_data, idx)
+
+        render_proactive_options(p_options, idx)
+
+    # 2. FULL APPLICATION INTENT
+    else:
+        if a_msg:
+            st.markdown(a_msg)
+        render_response_card(card_data, idx)
+        render_proactive_options(p_options, idx)
+
+
 # ============================================================
 # CHAT INTERFACE
 # ============================================================
@@ -498,22 +556,18 @@ def render_response_card(res, index):
 st.markdown("### 💬 Conversational AI Assistant")
 
 if not st.session_state.chat_history:
-    st.info("👋 **Welcome to NextStep AI!** Describe your situation naturally (e.g. *'I moved to Hyderabad and need to update my documents'* or paste a government notice text).")
+    st.info("👋 **Welcome to NextStep AI!** Ask any question naturally (e.g. *'What documents do I need for a birth certificate?'*, *'How long does a passport take?'*, *'I moved to Hyderabad and need to update my address'*, or paste a government notice).")
 
 for idx, message in enumerate(st.session_state.chat_history):
     role = message.get("role")
     content = message.get("content")
-    card_data = message.get("card_data")
 
     if role == "user":
         with st.chat_message("user", avatar="👤"):
             st.markdown(content)
     elif role == "assistant":
         with st.chat_message("assistant", avatar="🏛️"):
-            if card_data:
-                render_response_card(card_data, idx)
-            else:
-                st.markdown(content)
+            render_assistant_response(message, idx)
 
 
 # ============================================================
@@ -647,7 +701,7 @@ if active_user_prompt:
             # Update session progress state
             st.session_state.active_progress = {
                 "situation_understood": True,
-                "service_identified": True,
+                "service_identified": card_data.get("service_id") not in ["none", "general_public_service"],
                 "documents_identified": len(card_data.get("documents", [])) > 0,
                 "next_action_ready": True,
                 "final_submission_completed": False
@@ -655,10 +709,10 @@ if active_user_prompt:
 
             st.session_state.chat_history.append({
                 "role": "assistant",
-                "content": card_data.get("situation_understood", ""),
+                "content": card_data.get("assistant_message") or card_data.get("situation_understood", ""),
                 "card_data": card_data
             })
-            render_response_card(card_data, len(st.session_state.chat_history))
+            render_assistant_response(st.session_state.chat_history[-1], len(st.session_state.chat_history) - 1)
         else:
             st.error("Failed to process request. Please try again.")
 

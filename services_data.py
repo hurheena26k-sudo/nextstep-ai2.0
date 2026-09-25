@@ -41,6 +41,9 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "Visit PSK for Biometrics & Document Verification", "description": "Visit designated PSK with original documents. Get biometrics (photo & fingerprints) captured."},
             {"step": 5, "title": "Police Verification & Delivery", "description": "Track police verification status online. Passport will be printed and dispatched via Speed Post."}
         ],
+        "fee_info": "₹1,500 for Normal Application (36 pages) | ₹3,500 for Tatkaal Application.",
+        "processing_time": "7–14 working days (Normal after police verification) | 1–3 working days (Tatkaal).",
+        "where_to_apply": "Online at passportindia.gov.in followed by an in-person visit to your designated Passport Seva Kendra (PSK) or Post Office PSK.",
         "verification_notes": "Fees (₹1,500 normal / ₹3,500 Tatkaal) and document checklists are verified against MEA guidelines."
     },
     "aadhaar": {
@@ -68,6 +71,9 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "Receive Enrolment / Update Slip", "description": "Collect the 14-digit Enrolment ID (EID) slip to track your update status online."},
             {"step": 5, "title": "Download e-Aadhaar", "description": "Once updated, download password-protected e-Aadhaar PDF from myaadhaar.uidai.gov.in."}
         ],
+        "fee_info": "Free for new enrolment. ₹50 for demographic/address update. ₹100 for biometric update.",
+        "processing_time": "Typically updated within 5–15 working days upon verification.",
+        "where_to_apply": "Online via myaadhaar.uidai.gov.in (for address updates) or in person at any Aadhaar Seva Kendra (ASK).",
         "verification_notes": "Aadhaar enrolment is free. Demographic update is ₹50 and biometric update is ₹100 as per UIDAI official rules."
     },
     "pan": {
@@ -95,6 +101,9 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "Pay Processing Fee (For Physical Card)", "description": "Instant e-PAN is free. Physical card delivery costs approx ₹107 within India."},
             {"step": 5, "title": "Download e-PAN / Receive Physical Card", "description": "Download e-PAN PDF within hours, or receive physical plastic card via post in 7-10 working days."}
         ],
+        "fee_info": "Free for Instant e-PAN via Income Tax portal. Approx ₹107 for physical plastic card delivery.",
+        "processing_time": "Instant e-PAN issued in hours. Physical card delivered in 7–10 working days via Speed Post.",
+        "where_to_apply": "Official Income Tax e-Filing portal (incometax.gov.in) or Protean NSDL / UTIITSL portal.",
         "verification_notes": "Instant e-PAN via Income Tax portal is completely free for Aadhaar holders. Physical card application costs ₹107."
     },
     "voter_id": {
@@ -121,6 +130,9 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "Field Verification by BLO", "description": "Booth Level Officer (BLO) will conduct field verification at your residence."},
             {"step": 5, "title": "Download e-EPIC Voter Card", "description": "Upon approval, download digitally signed e-EPIC PDF from voters.eci.gov.in."}
         ],
+        "fee_info": "100% Free of charge for new enrolment (Form 6) and address change/shifting (Form 8).",
+        "processing_time": "15–30 days following BLO field verification and Electoral Registration Officer (ERO) approval.",
+        "where_to_apply": "Official ECI Voter Services Portal at voters.eci.gov.in or Voter Helpline Mobile App.",
         "verification_notes": "Voter enrolment and address correction via Form 6 / Form 8 on ECI portal are free of charge."
     },
     "driving_licence": {
@@ -148,6 +160,9 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "Biometric Capture & Test Approval", "description": "Upon passing the driving test, complete photo and biometric capture at RTO desk."},
             {"step": 5, "title": "Receive Smart Card DL", "description": "Smart card DL will be dispatched via post, or download digital DL on DigiLocker / mParivahan app."}
         ],
+        "fee_info": "LLR test fee: ₹150 + ₹50 slot fee | Permanent DL: ₹200 application + ₹300 test fee + ₹200 smart card fee.",
+        "processing_time": "LLR issued same day upon passing online exam. Permanent DL dispatched within 7 working days after passing track test.",
+        "where_to_apply": "Online at parivahan.gov.in or transport.telangana.gov.in, with driving test at your designated Telangana RTO.",
         "verification_notes": "Official fees: LLR test fee ₹150 + ₹50 slot fee; Permanent DL fee ₹200 + ₹300 test fee + ₹200 smart card fee."
     },
     "birth_certificate": {
@@ -175,6 +190,9 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "Pay Service Fee", "description": "Pay official MeeSeva user charges (approx ₹35 - ₹50 per copy)."},
             {"step": 5, "title": "Download Digitally Signed Certificate", "description": "Once approved by GHMC Registrar, download digitally signed PDF from MeeSeva or collect printed copy."}
         ],
+        "fee_info": "Registration within 21 days is free. MeeSeva user charge: ₹35–₹50 per official certified copy.",
+        "processing_time": "3–7 working days for digital certificate download after hospital record verification.",
+        "where_to_apply": "Online via Telangana MeeSeva portal (ts.meeseva.telangana.gov.in) or GHMC/CDMA Citizen Service Center.",
         "verification_notes": "Birth registration within 21 days is free at local municipal offices. Late registration beyond 1 year requires RDO permission."
     },
     "death_certificate": {
@@ -201,6 +219,9 @@ SERVICES_DATABASE = {
             {"step": 3, "title": "Verification by Municipal Health Officer", "description": "GHMC Assistant Medical Officer of Health (AMOH) verifies records."},
             {"step": 4, "title": "Download Digitally Signed Certificate", "description": "Download death certificate PDF from MeeSeva portal after approval."}
         ],
+        "fee_info": "Free registration within 21 days. MeeSeva service fee is ₹35 per certified copy.",
+        "processing_time": "3–5 working days upon MRO/AMOH approval.",
+        "where_to_apply": "Telangana MeeSeva portal (ts.meeseva.telangana.gov.in) or GHMC Citizen Service Center.",
         "verification_notes": "Death registration within 21 days is free. Official MeeSeva application fee is ₹35 per certified copy."
     },
     "caste_income_certificate": {
@@ -228,6 +249,9 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "MRO / VRO Field Enquiry", "description": "Village Revenue Officer (VRO) and Tahsildar verify details."},
             {"step": 5, "title": "Download Certificate with QR Code", "description": "Download digitally signed certificate from MeeSeva upon Tahsildar approval."}
         ],
+        "fee_info": "Official MeeSeva application user fee is ₹45. Income certificate validity in Telangana is 1 year.",
+        "processing_time": "7–15 working days following VRO/Tahsildar enquiry.",
+        "where_to_apply": "Online at ts.meeseva.telangana.gov.in or any authorized MeeSeva kiosk in Telangana.",
         "verification_notes": "Official MeeSeva application user fee is ₹45. Income certificate validity in Telangana is 1 year."
     },
     "property_tax": {
@@ -255,6 +279,9 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "Pay Online", "description": "Pay securely using Net Banking, UPI, Credit/Debit Card, or at MeeSeva center."},
             {"step": 5, "title": "Download Receipt", "description": "Download digitally signed official GHMC property tax receipt."}
         ],
+        "fee_info": "Calculated based on property plinth area and usage rate. 5% early bird rebate available if paid before April 30.",
+        "processing_time": "Instant digital payment receipt generated upon successful transaction.",
+        "where_to_apply": "GHMC official portal (ghmc.gov.in) or CDMA Telangana portal (cdma.telangana.gov.in).",
         "verification_notes": "Verified against GHMC & CDMA Telangana portals. 5% early bird discount applies if paid before April 30."
     },
     "welfare_schemes": {
@@ -282,6 +309,9 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "Upload Document Scans", "description": "Upload scanned bank passbook, income cert, caste cert, and college bonafide."},
             {"step": 5, "title": "College / District Welfare Officer Verification", "description": "Application will be verified by institution principal and District Welfare Officer."}
         ],
+        "fee_info": "100% Free online application on official government portal.",
+        "processing_time": "Subject to college/institution verification and District Welfare Officer processing cycles.",
+        "where_to_apply": "Telangana ePASS portal (telanganaepass.cgg.gov.in).",
         "verification_notes": "Official ePASS portal managed by CGG Telangana. No fee is charged for online application submission."
     },
     "business_msme": {
@@ -309,6 +339,9 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "PAN & GST Validation", "description": "System validates PAN and investment details with Income Tax database."},
             {"step": 5, "title": "Download Udyam Registration Certificate", "description": "Instant generation of lifetime Udyam Registration Certificate with QR Code."}
         ],
+        "fee_info": "100% Free on official Udyam portal.",
+        "processing_time": "Instant certificate generation upon Aadhaar/PAN OTP validation.",
+        "where_to_apply": "Official Udyam portal at udyamregistration.gov.in.",
         "verification_notes": "Udyam Registration is 100% free of charge on udyamregistration.gov.in. Beware of private fake portals charging fees."
     },
     "itr_filing": {
@@ -336,6 +369,9 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "Submit & e-Verify via Aadhaar OTP", "description": "Complete e-Verification within 30 days using Aadhaar OTP or Net Banking to complete filing."},
             {"step": 5, "title": "Track Refund Status", "description": "Track processing and tax refund credit directly on portal dashboard."}
         ],
+        "fee_info": "Free to file directly on Income Tax e-filing portal.",
+        "processing_time": "e-Verification required within 30 days. Processing typically takes 15–45 days.",
+        "where_to_apply": "Income Tax e-Filing portal at incometax.gov.in.",
         "verification_notes": "Verified against Income Tax Department rules. e-Verification within 30 days is mandatory for ITR processing."
     }
 }

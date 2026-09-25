@@ -84,7 +84,10 @@ Your core promise: "Tell us what happened. We'll help you figure out what to do 
 You operate as a task-oriented agent. Analyze the user's situation (and conversation history) and produce output strictly as valid JSON following this exact schema:
 
 {
-  "service_id": "passport|aadhaar|pan|voter_id|driving_licence|birth_certificate|death_certificate|caste_income_certificate|property_tax|welfare_schemes|business_msme|itr_filing|other_service",
+  "intent": "conversational|clarification|general_qa|process_qa|service_discovery|application_intent",
+  "assistant_message": "Clear natural language response answering the user's question, greeting, or explaining options.",
+  "proactive_options": ["Option 1", "Option 2"],
+  "service_id": "passport|aadhaar|pan|voter_id|driving_licence|birth_certificate|death_certificate|caste_income_certificate|property_tax|welfare_schemes|business_msme|itr_filing|general_public_service|none",
   "service_name": "Official Government Service Name",
   "jurisdiction": "Central|Telangana|Other State",
   "jurisdiction_label": "e.g., Central Government (UIDAI) or Telangana State Government (MeeSeva / GHMC)",
@@ -119,12 +122,16 @@ You operate as a task-oriented agent. Analyze the user's situation (and conversa
 }
 
 CRITICAL RULES:
-1. Natural Situation Mapping: Understand citizen narratives like "I moved to Hyderabad" or "I received a tax letter" and map them to appropriate services.
-2. Missing Details: Do not ask unnecessary questions. If enough info exists, proceed directly. If something crucial is missing, set `clarification_needed` with a concise question.
-3. Government Notices: If the user pasted a notice/letter, populate `notice_analysis` with `{"simple_explanation": "...", "requested_action": "...", "mentioned_documents": [...], "important_dates": "..."}`. Clearly state explanations are informational.
-4. "Do It For Me" Requests: If user asks "Can you do this for me?", populate `do_it_for_me_workspace` with `{"prepared_draft_fields": {...}, "checklist": [...], "portal_notice": "Explain that final submission must occur on official government portal due to OTP/auth controls"}`. NEVER claim to submit on external portals or bypass OTP/CAPTCHA.
-5. Never invent fake URLs or portals. Prefer official .gov.in domains.
-6. Output ONLY raw valid JSON, no markdown backticks surrounding the JSON response.
+1. Intent Classification & Assistant Behavior:
+   - CONVERSATIONAL: For greetings ("hello"), gratitude ("thank you"), or capabilities ("what can you do?"), respond naturally in `assistant_message` without forcing a service card. Provide helpful `proactive_options`.
+   - CLARIFICATION: For ambiguous queries like "I need a certificate", set `intent`: "clarification", do NOT guess a default service like Aadhaar. Ask clearly in `assistant_message` and `clarification_needed` which certificate they need, providing specific options.
+   - PROCESS_QA / GENERAL_QA: For questions like "What is the fee?", "How long does it take?", "Where do I apply?", or "What documents do I need?", answer clearly and directly in `assistant_message` using service information.
+   - SERVICE_DISCOVERY: For situation queries like "I moved to Hyderabad" or "I need to change my address", explain available options clearly across relevant services.
+   - APPLICATION_INTENT: For explicit application requests like "I want to apply for birth certificate" or "Renew driving licence", initiate full service workflow card with document checklist and steps.
+2. Proactive Help: Always provide 2-4 concise, relevant `proactive_options` for next steps.
+3. Government Notices: If user pasted a notice/letter, populate `notice_analysis` with `{"simple_explanation": "...", "requested_action": "...", "mentioned_documents": [...], "important_dates": "..."}`.
+4. "Do It For Me" Requests: If user asks "Can you do this for me?", populate `do_it_for_me_workspace` with `{"prepared_draft_fields": {...}, "checklist": [...], "portal_notice": "Explain that final submission must occur on official government portal due to OTP/auth controls"}`. NEVER claim to submit on external portals.
+5. Output ONLY raw valid JSON, no markdown backticks surrounding the JSON response.
 """
 
 
@@ -152,32 +159,123 @@ def generate_fallback_response(query: str, history: Optional[List[Dict[str, str]
     """Generates structured response from local curated knowledge base if API key is not available or API fails."""
     query_lower = query.lower().strip()
 
-    # Special handling for "Can you do this for me?"
-    is_do_it_for_me = any(phrase in query_lower for phrase in ["do this for me", "do it for me", "apply for me", "fill for me"])
+    # 1. CONVERSATIONAL INTENT CHECK (Greetings, Gratitude, Capabilities)
+    greetings = ["hello", "hi", "hey", "namaste", "good morning", "good afternoon", "good evening"]
+    gratitudes = ["thank you", "thanks", "thank you so much", "thanks a lot", "thank u"]
+    capabilities = ["who are you", "what can you do", "can you help me", "help me", "how can you help", "what do you do", "about you"]
 
-    # Special handling for notice/letter pasting
+    is_greeting = any(g == query_lower or query_lower.startswith(g + " ") for g in greetings)
+    is_gratitude = any(g in query_lower for g in gratitudes)
+    is_capability = any(c in query_lower for c in capabilities)
+
+    if (is_greeting or is_gratitude or is_capability) and len(query_lower.split()) <= 6:
+        if is_gratitude:
+            msg = "You're very welcome! 😊 I'm always here to help you navigate Indian public government services, verify documents, and guide you through official portals."
+            options = ["• Discover available services", "• Check required documents", "• Ask a process question"]
+        elif is_capability:
+            msg = "I am **NextStep AI**, your smart AI government service navigation assistant! 🏛️\n\nI can help you:\n• **Discover & Understand Services**: Passports, Aadhaar, PAN, Voter ID, Driving Licences, Birth/Death Certificates, MeeSeva, GHMC Property Tax, Welfare Schemes & ITR.\n• **Build Document Checklists**: Exact required documents and verification checks.\n• **Answer Process Questions**: Official fees, processing times, and official portal links.\n• **Decode Government Notices**: Simple explanations of notices & demand letters.\n• **Prepare Draft Form Fields**: Organize your details for official portal submission."
+            options = ["• Apply for Birth Certificate", "• Update Address in Hyderabad", "• Renew Driving Licence in TS", "• Check GHMC Property Tax"]
+        else: # greeting
+            msg = "Hello! 👋 Welcome to **NextStep AI**. Tell me what you're trying to accomplish or ask any question about public services in India & Telangana, and I'll guide you step-by-step!"
+            options = ["• I need a birth certificate", "• I moved to Hyderabad & need address update", "• How to renew my driving licence?", "• How to pay GHMC property tax?"]
+
+        return {
+            "success": True,
+            "source": "conversational",
+            "data": {
+                "intent": "conversational",
+                "assistant_message": msg,
+                "proactive_options": options,
+                "service_id": "none",
+                "service_name": "NextStep AI Assistant",
+                "jurisdiction": "Central",
+                "jurisdiction_label": "Indian Public Services",
+                "situation_understood": "Conversational greeting or capability inquiry.",
+                "clarification_needed": None,
+                "documents": [],
+                "steps": [],
+                "official_url": "https://www.india.gov.in/",
+                "portal_name": "National Portal of India",
+                "is_verified_url": True,
+                "verification_notes": "",
+                "next_action": "Select an option or tell me what you'd like to do.",
+                "notice_analysis": None,
+                "do_it_for_me_workspace": None,
+                "progress_tracker": {
+                    "situation_understood": True,
+                    "service_identified": False,
+                    "documents_identified": False,
+                    "next_action_ready": False,
+                    "final_submission_completed": False
+                }
+            }
+        }
+
+    # 2. CLARIFICATION INTENT CHECK (Ambiguous queries)
+    ambiguous_phrases = ["i need a certificate", "i want a certificate", "certificate application", "i need an id card", "i need a document", "apply for certificate", "get a certificate", "i need a certificate."]
+    is_ambiguous = query_lower in ambiguous_phrases or (query_lower == "certificate")
+
+    if is_ambiguous:
+        msg = "Sure — I can certainly help you get your certificate! Which specific certificate do you need?\n\n• **Birth Certificate** (GHMC / MeeSeva Telangana)\n• **Income Certificate** (MeeSeva Telangana)\n• **Caste Certificate** (MeeSeva Telangana)\n• **Death Certificate** (GHMC / MeeSeva Telangana)"
+        options = ["👶 Birth Certificate", "📑 Income Certificate", "📜 Caste Certificate", "📜 Death Certificate", "🛂 Passport Services"]
+
+        return {
+            "success": True,
+            "source": "clarification_required",
+            "data": {
+                "intent": "clarification",
+                "assistant_message": msg,
+                "clarification_needed": "Which specific certificate do you need? (Birth certificate, income certificate, caste certificate, or death certificate?)",
+                "proactive_options": options,
+                "service_id": "general_public_service",
+                "service_name": "Certificate Services",
+                "jurisdiction": "Telangana",
+                "jurisdiction_label": "Telangana State Government (MeeSeva / GHMC)",
+                "situation_understood": f"Clarification requested for certificate type: '{query}'.",
+                "documents": [],
+                "steps": [
+                    {"step": 1, "title": "Specify Certificate Type", "description": "Select the exact certificate you need (e.g. Birth, Income, or Caste)."},
+                    {"step": 2, "title": "Review Document Checklist", "description": "NextStep AI will build your custom document checklist and eligibility rules."},
+                    {"step": 3, "title": "Proceed to Official Portal", "description": "Get verified direct access to official MeeSeva or GHMC portals."}
+                ],
+                "official_url": "https://ts.meeseva.telangana.gov.in/meeseva/home.htm",
+                "portal_name": "Telangana MeeSeva Portal",
+                "is_verified_url": True,
+                "verification_notes": "Specify certificate type to view official fees and required documents.",
+                "next_action": "Please choose or type which certificate you need.",
+                "notice_analysis": None,
+                "do_it_for_me_workspace": None,
+                "progress_tracker": {
+                    "situation_understood": True,
+                    "service_identified": False,
+                    "documents_identified": False,
+                    "next_action_ready": False,
+                    "final_submission_completed": False
+                }
+            }
+        }
+
+    # 3. SPECIAL HANDLING FOR NOTICES & DO-IT-FOR-ME
+    is_do_it_for_me = any(phrase in query_lower for phrase in ["do this for me", "do it for me", "apply for me", "fill for me"])
     is_notice = any(w in query_lower for w in ["notice", "letter", "demand", "penalty", "intimation", "received a document", "received a"])
 
-    # First attempt matching on LATEST query directly (primary request)
+    # 4. SERVICE MATCHING (LATEST QUERY & CONTEXT)
     matched = search_service_by_query(query)
 
-    # If not matched directly on latest query, check recent history for service context if the query is a follow-up
     last_service_id = None
     if history:
         for msg in reversed(history):
             if msg.get("role") == "assistant" and msg.get("card_data"):
                 svc = msg["card_data"].get("service_id")
-                if svc and svc != "general_public_service":
+                if svc and svc not in ["general_public_service", "none"]:
                     last_service_id = svc
                     break
 
-    # If prompt is a follow-up question like "show documents" or "what should I do next?" or "explain this"
     followup_keywords = ["show documents", "documents", "what should i do next?", "what next?", "next steps", "explain this", "where is the verified official website", "can you do this for me?"]
 
     if not matched and last_service_id and any(kw in query_lower for kw in followup_keywords):
         matched = get_verified_service_by_key(last_service_id)
 
-    # If still not matched, try searching with combined context (latest query + last user query)
     if not matched and history:
         last_user_msg = ""
         for msg in reversed(history):
@@ -187,8 +285,78 @@ def generate_fallback_response(query: str, history: Optional[List[Dict[str, str]
         if last_user_msg:
             matched = search_service_by_query(f"{query} {last_user_msg}")
 
+    # 5. PROCESS & GENERAL QA QUESTIONS ON MATCHED SERVICE
     if matched:
+        is_fee_question = any(w in query_lower for w in ["fee", "fees", "cost", "how much", "charge", "charges", "price"])
+        is_time_question = any(w in query_lower for w in ["how long", "processing time", "duration", "days", "when will", "how many days"])
+        is_where_question = any(w in query_lower for w in ["where do i apply", "where to apply", "where apply", "which website", "portal name", "where can i apply"])
+        is_doc_question = any(w in query_lower for w in ["what documents", "documents required", "document list", "what do i need for", "checklist", "docs needed"])
+
+        if is_fee_question or is_time_question or is_where_question or is_doc_question:
+            if is_fee_question:
+                a_msg = f"💰 **Fee Structure for {matched['title']}**:\n\n{matched.get('fee_info', matched['verification_notes'])}\n\n*Official Portal*: [{matched['portal_name']}]({matched['official_url']})"
+                intent_type = "process_qa"
+            elif is_time_question:
+                a_msg = f"⏱️ **Processing Time for {matched['title']}**:\n\n{matched.get('processing_time', 'Processing times vary depending on verification.')}\n\n*Official Portal*: [{matched['portal_name']}]({matched['official_url']})"
+                intent_type = "process_qa"
+            elif is_where_question:
+                a_msg = f"📍 **Where to Apply for {matched['title']}**:\n\n{matched.get('where_to_apply', matched['official_url'])}\n\n*Official Website*: [{matched['portal_name']}]({matched['official_url']})"
+                intent_type = "process_qa"
+            else:
+                docs_str = "\n".join([f"• **{d['name']}** ({d['status']}) — *{d['why_needed']}*" for d in matched['documents']])
+                a_msg = f"📋 **Required Documents for {matched['title']}**:\n\n{docs_str}\n\n*Note*: Verify that document details match your official ID records."
+                intent_type = "general_qa"
+
+            p_options = [
+                f"• Apply for {matched['title']}",
+                f"• View step-by-step guide",
+                f"• Open official {matched['portal_name']}"
+            ]
+
+            return {
+                "success": True,
+                "source": "knowledge_base_qa",
+                "data": {
+                    "intent": intent_type,
+                    "assistant_message": a_msg,
+                    "proactive_options": p_options,
+                    "service_id": matched["id"],
+                    "service_name": matched["title"],
+                    "jurisdiction": matched["jurisdiction"],
+                    "jurisdiction_label": matched["jurisdiction_label"],
+                    "situation_understood": f"Answered process question regarding {matched['title']}.",
+                    "clarification_needed": None,
+                    "documents": matched["documents"],
+                    "steps": matched["steps"],
+                    "official_url": matched["official_url"],
+                    "portal_name": matched["portal_name"],
+                    "is_verified_url": matched["is_verified"],
+                    "verification_notes": matched["verification_notes"],
+                    "next_action": f"Review answer or proceed to open {matched['portal_name']}.",
+                    "notice_analysis": None,
+                    "do_it_for_me_workspace": None,
+                    "progress_tracker": {
+                        "situation_understood": True,
+                        "service_identified": True,
+                        "documents_identified": True,
+                        "next_action_ready": True,
+                        "final_submission_completed": False
+                    }
+                }
+            }
+
+        # 6. FULL APPLICATION INTENT FOR MATCHED SERVICE
+        a_msg = f"I can help you with that! Here is your step-by-step guidance for **{matched['title']}** ({matched['jurisdiction_label']}), including required documents, application steps, and official portal links."
+        p_options = [
+            f"• Check required documents",
+            f"• Open official {matched['portal_name']}",
+            f"• Can you do this for me?"
+        ]
+
         res_data = {
+            "intent": "application_intent",
+            "assistant_message": a_msg,
+            "proactive_options": p_options,
             "service_id": matched["id"],
             "service_name": matched["title"],
             "jurisdiction": matched["jurisdiction"],
@@ -228,7 +396,44 @@ def generate_fallback_response(query: str, history: Optional[List[Dict[str, str]
         }
         return {"success": True, "source": "knowledge_base", "data": res_data}
 
-    # If query confidence is low and no service matched, ASK A CLARIFICATION QUESTION instead of guessing Aadhaar!
+    # 7. SERVICE DISCOVERY INTENT (Broad situations without exact single service match)
+    is_address_change = any(w in query_lower for w in ["change my address", "update address", "moved to hyderabad", "moved to", "address change", "shifting address"])
+    if is_address_change:
+        a_msg = "If you moved or need to update your address in Hyderabad / Telangana, here are the official government options available:\n\n1. **Aadhaar Address Update**: Update address online via myAadhaar with valid proof (utility bill / rent agreement).\n2. **Voter ID Address Shifting**: Submit Form 8 on ECI Voter Portal to transfer constituency.\n3. **Driving Licence Address Change**: Update address at local TS RTO via Parivahan portal.\n4. **GHMC Property Tax Record**: Update ownership or postal address on GHMC portal."
+        options = ["• Update Aadhaar Address", "• Update Voter ID Address", "• Renew/Transfer Driving Licence", "• Check GHMC Property Tax"]
+        return {
+            "success": True,
+            "source": "service_discovery",
+            "data": {
+                "intent": "service_discovery",
+                "assistant_message": a_msg,
+                "proactive_options": options,
+                "service_id": "aadhaar",
+                "service_name": "Address Update & Citizen Services",
+                "jurisdiction": "Telangana",
+                "jurisdiction_label": "Telangana State & Central Services",
+                "situation_understood": "Citizen requested guidance on updating address across government records.",
+                "clarification_needed": None,
+                "documents": get_verified_service_by_key("aadhaar")["documents"],
+                "steps": get_verified_service_by_key("aadhaar")["steps"],
+                "official_url": "https://myaadhaar.uidai.gov.in/",
+                "portal_name": "myAadhaar Portal",
+                "is_verified_url": True,
+                "verification_notes": "Address updates can be completed online for Aadhaar and Voter ID.",
+                "next_action": "Select which document address you want to update first.",
+                "notice_analysis": None,
+                "do_it_for_me_workspace": None,
+                "progress_tracker": {
+                    "situation_understood": True,
+                    "service_identified": True,
+                    "documents_identified": True,
+                    "next_action_ready": True,
+                    "final_submission_completed": False
+                }
+            }
+        }
+
+    # 8. GENERAL CLARIFICATION FALLBACK (Unmatched query)
     is_telangana = any(kw in query_lower for kw in ["telangana", "hyderabad", "ghmc", "meeseva", "ts"])
     jurisdiction = "Telangana" if is_telangana else "Central"
     jurisdiction_label = "Telangana State Government (MeeSeva / GHMC Portal)" if is_telangana else "Central Government Public Services"
@@ -239,6 +444,9 @@ def generate_fallback_response(query: str, history: Optional[List[Dict[str, str]
         "success": True,
         "source": "clarification_required",
         "data": {
+            "intent": "clarification",
+            "assistant_message": f"I received your request: '{query}'. To give you exact step-by-step guidance, documents needed, and verified links, please specify which government service you need help with.",
+            "proactive_options": ["• Passport Services", "• Driving Licence TS", "• Birth Certificate GHMC", "• Property Tax GHMC"],
             "service_id": "general_public_service",
             "service_name": "Government Service Assistant",
             "jurisdiction": jurisdiction,
