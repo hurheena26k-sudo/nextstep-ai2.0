@@ -66,12 +66,10 @@ CRITICAL GUIDELINES:
 
 def get_api_key(st_secrets=None) -> Optional[str]:
     """Retrieves GEMINI_API_KEY from environment or streamlit secrets safely."""
-    # Check environment variable first
     key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if key:
         return key
 
-    # Check Streamlit secrets safely if available
     if st_secrets is not None:
         try:
             if "GEMINI_API_KEY" in st_secrets:
@@ -159,8 +157,11 @@ def execute_agent_workflow(user_query: str, api_key: Optional[str] = None, progr
     # Simulate stage progress callback if provided
     for stage in AGENT_STAGES:
         if progress_callback:
-            progress_callback(stage["id"], stage["title"], stage["description"])
-            time.sleep(0.15)  # brief timing for visual transition in hackathon demo
+            try:
+                progress_callback(stage["id"], stage["title"], stage["description"])
+            except Exception:
+                pass
+            time.sleep(0.1)  # brief timing for visual transition in hackathon demo
 
     # If no API key, use verified knowledge engine fallback
     if not api_key:
