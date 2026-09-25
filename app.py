@@ -38,7 +38,7 @@ MODELS = [
 
 
 # ============================================================
-# SYSTEM INSTRUCTION
+# NEXTSTEP AI INSTRUCTION
 # ============================================================
 
 NEXTSTEP_SYSTEM_INSTRUCTION = """
@@ -275,181 +275,79 @@ SERVICE_LINKS = {
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+if "pending_prompt" not in st.session_state:
+    st.session_state.pending_prompt = None
+
 
 # ============================================================
-# CUSTOM VISUAL STYLE
+# SAFE VISUAL STYLING
 # ============================================================
 
 st.markdown(
     """
     <style>
 
-    /* Main background */
     .stApp {
         background-color: #f7f9fc;
     }
 
-    /* Sidebar */
     section[data-testid="stSidebar"] {
         background-color: #ffffff;
         border-right: 1px solid #e6eaf0;
     }
 
-    /* Remove excessive top spacing */
     .block-container {
-        padding-top: 1.5rem;
-        padding-bottom: 5rem;
         max-width: 1150px;
+        padding-top: 1.5rem;
+        padding-bottom: 4rem;
     }
 
-    /* Logo */
-    .nextstep-logo {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 4px;
+    .nextstep-header {
+        padding: 10px 0 5px 0;
     }
 
-    .logo-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 14px;
-        background: linear-gradient(
-            135deg,
-            #2563eb,
-            #7c3aed
-        );
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 25px;
-        box-shadow: 0 8px 22px rgba(37, 99, 235, 0.20);
-    }
-
-    .logo-text {
-        font-size: 27px;
+    .nextstep-title {
+        font-size: 32px;
         font-weight: 750;
         color: #172033;
-        line-height: 1;
     }
 
-    .logo-subtitle {
-        font-size: 12px;
-        color: #718096;
-        margin-top: 5px;
+    .nextstep-subtitle {
+        font-size: 14px;
+        color: #6b7585;
+        margin-top: 3px;
     }
 
-    /* Hero */
     .hero-box {
-        background: linear-gradient(
-            135deg,
-            #eef4ff,
-            #f7f1ff
-        );
-        border: 1px solid #e1e8f7;
-        border-radius: 22px;
-        padding: 30px;
-        margin-top: 18px;
-        margin-bottom: 24px;
+        background-color: #eef4ff;
+        border: 1px solid #dce6f7;
+        border-radius: 18px;
+        padding: 25px;
+        margin: 18px 0 25px 0;
     }
 
     .hero-title {
-        font-size: 31px;
-        font-weight: 750;
+        font-size: 27px;
+        font-weight: 700;
         color: #172033;
-        margin-bottom: 7px;
     }
 
-    .hero-description {
-        font-size: 16px;
-        color: #596579;
+    .hero-text {
+        color: #5f6b7d;
+        font-size: 15px;
         line-height: 1.6;
+        margin-top: 7px;
     }
 
-    /* Cards */
-    .feature-card {
-        background: white;
-        border: 1px solid #e6eaf0;
-        border-radius: 17px;
-        padding: 20px;
-        min-height: 135px;
-        box-shadow: 0 4px 14px rgba(20, 30, 50, 0.04);
-    }
-
-    .feature-icon {
-        font-size: 24px;
-        margin-bottom: 8px;
-    }
-
-    .feature-title {
-        font-size: 16px;
-        font-weight: 700;
-        color: #202938;
-    }
-
-    .feature-text {
-        font-size: 13px;
-        color: #707b8e;
-        line-height: 1.5;
-        margin-top: 5px;
-    }
-
-    /* Suggestion heading */
-    .suggestion-heading {
-        font-size: 18px;
-        font-weight: 700;
-        color: #202938;
-        margin-bottom: 8px;
-    }
-
-    /* Chat area */
-    [data-testid="stChatMessage"] {
-        border-radius: 16px;
-        margin-bottom: 10px;
-    }
-
-    /* Buttons */
     .stButton > button {
         border-radius: 12px;
-        border: 1px solid #dfe5ee;
-        background-color: white;
-        color: #293447;
+        min-height: 45px;
         font-weight: 600;
-        min-height: 44px;
-    }
-
-    .stButton > button:hover {
-        border-color: #7c3aed;
-        color: #5b21b6;
-        background-color: #faf8ff;
     }
 
     .stLinkButton > a {
         border-radius: 12px;
         font-weight: 650;
-    }
-
-    /* Chat input */
-    [data-testid="stChatInput"] {
-        border-radius: 16px;
-    }
-
-    /* Sidebar branding */
-    .sidebar-brand {
-        padding: 8px 0 12px 0;
-    }
-
-    .sidebar-brand-title {
-        font-size: 21px;
-        font-weight: 750;
-        color: #202938;
-    }
-
-    .sidebar-brand-subtitle {
-        font-size: 12px;
-        color: #7a8495;
-        margin-top: 4px;
     }
 
     </style>
@@ -465,33 +363,27 @@ st.markdown(
 with st.sidebar:
 
     st.markdown(
-        """
-        <div class="sidebar-brand">
-            <div class="sidebar-brand-title">
-                🤖 NextStep AI
-            </div>
-            <div class="sidebar-brand-subtitle">
-                Public-service assistant
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
+        "## 🤖 NextStep AI"
+    )
+
+    st.caption(
+        "Your intelligent public-service assistant"
     )
 
     st.divider()
 
     if st.button(
-        "＋  New Conversation",
+        "＋ New Conversation",
         use_container_width=True
     ):
 
         st.session_state.messages = []
-
+        st.session_state.pending_prompt = None
         st.rerun()
 
     st.divider()
 
-    st.markdown("### 💬 Conversations")
+    st.subheader("💬 Conversations")
 
     user_messages = [
         message["content"]
@@ -511,43 +403,36 @@ with st.sidebar:
             user_messages[-8:]
         ):
 
-            short_message = message[:38]
+            short_message = message[:40]
 
-            if len(message) > 38:
+            if len(message) > 40:
                 short_message += "..."
 
             st.caption(
-                f"**{index + 1}.** {short_message}"
+                f"{index + 1}. {short_message}"
             )
 
     st.divider()
 
     st.caption(
-        "NextStep AI helps citizens understand "
-        "public services and find their next step."
+        "Guiding citizens toward their next step."
     )
 
 
 # ============================================================
-# TOP LOGO
+# TOP BRANDING
 # ============================================================
 
 st.markdown(
     """
-    <div class="nextstep-logo">
+    <div class="nextstep-header">
 
-        <div class="logo-icon">
-            ✦
+        <div class="nextstep-title">
+            ✦ NextStep AI
         </div>
 
-        <div>
-            <div class="logo-text">
-                NextStep AI
-            </div>
-
-            <div class="logo-subtitle">
-                Intelligent guidance for public services
-            </div>
+        <div class="nextstep-subtitle">
+            Intelligent guidance for public services
         </div>
 
     </div>
@@ -557,7 +442,7 @@ st.markdown(
 
 
 # ============================================================
-# HERO / WELCOME
+# WELCOME SCREEN
 # ============================================================
 
 if not st.session_state.messages:
@@ -567,14 +452,14 @@ if not st.session_state.messages:
         <div class="hero-box">
 
             <div class="hero-title">
-                How can we help you today?
+                How can I help you today?
             </div>
 
-            <div class="hero-description">
-                Tell NextStep AI what you need in your own words.
-                You don't need to know the exact government service.
-                We'll understand your request and guide you toward
-                the next step.
+            <div class="hero-text">
+                Tell me what you need in your own words.
+                You don't need to know the exact government
+                service name. I'll understand your request
+                and guide you toward the next step.
             </div>
 
         </div>
@@ -582,18 +467,15 @@ if not st.session_state.messages:
         unsafe_allow_html=True
     )
 
-    st.markdown(
-        '<div class="suggestion-heading">✨ Try asking</div>',
-        unsafe_allow_html=True
+    st.subheader("✨ Suggested prompts")
+
+    st.caption(
+        "Click one to start a conversation."
     )
 
-    # ========================================================
-    # CLICKABLE SUGGESTED PROMPTS
-    # ========================================================
+    col1, col2 = st.columns(2)
 
-    prompt_col1, prompt_col2 = st.columns(2)
-
-    with prompt_col1:
+    with col1:
 
         if st.button(
             "📄 Apply for an income certificate",
@@ -607,18 +489,18 @@ if not st.session_state.messages:
             st.rerun()
 
         if st.button(
-            "🪪 I need help with Aadhaar",
+            "📜 I need a birth certificate",
             use_container_width=True
         ):
 
             st.session_state.pending_prompt = (
-                "I need help with my Aadhaar service."
+                "I want to apply for a birth certificate in Telangana."
             )
 
             st.rerun()
 
         if st.button(
-            "🚗 I want to get a driving licence",
+            "🚗 I want a driving licence",
             use_container_width=True
         ):
 
@@ -628,15 +510,15 @@ if not st.session_state.messages:
 
             st.rerun()
 
-    with prompt_col2:
+    with col2:
 
         if st.button(
-            "📜 I need a birth certificate",
+            "🪪 I need help with Aadhaar",
             use_container_width=True
         ):
 
             st.session_state.pending_prompt = (
-                "I want to apply for a birth certificate in Telangana."
+                "I need help with my Aadhaar service."
             )
 
             st.rerun()
@@ -663,87 +545,92 @@ if not st.session_state.messages:
 
             st.rerun()
 
-    st.write("")
-
-    feature_col1, feature_col2, feature_col3 = st.columns(3)
-
-    with feature_col1:
-
-        st.markdown(
-            """
-            <div class="feature-card">
-
-                <div class="feature-icon">
-                    🧠
-                </div>
-
-                <div class="feature-title">
-                    Understands your need
-                </div>
-
-                <div class="feature-text">
-                    Describe your problem naturally.
-                    You don't need to know the service name.
-                </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with feature_col2:
-
-        st.markdown(
-            """
-            <div class="feature-card">
-
-                <div class="feature-icon">
-                    🧭
-                </div>
-
-                <div class="feature-title">
-                    Guides your next step
-                </div>
-
-                <div class="feature-text">
-                    Get simple, practical steps based
-                    on what you are trying to do.
-                </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with feature_col3:
-
-        st.markdown(
-            """
-            <div class="feature-card">
-
-                <div class="feature-icon">
-                    🔗
-                </div>
-
-                <div class="feature-title">
-                    Official sources
-                </div>
-
-                <div class="feature-text">
-                    Clear service requests can receive
-                    a direct official source.
-                </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
     st.divider()
+
+    st.subheader("Why NextStep AI?")
+
+    info1, info2, info3 = st.columns(3)
+
+    with info1:
+
+        st.info(
+            "🧠 **Understands your need**\n\n"
+            "Describe your problem naturally. "
+            "You don't need to know the exact service."
+        )
+
+    with info2:
+
+        st.info(
+            "🧭 **Guides your next step**\n\n"
+            "Get simple, practical steps based on "
+            "what you are trying to do."
+        )
+
+    with info3:
+
+        st.info(
+            "🔗 **Official sources**\n\n"
+            "Clear service requests can receive "
+            "a direct official source."
+        )
 
 
 # ============================================================
-# GEMINI FUNCTION
+# DISPLAY CHAT HISTORY
+# ============================================================
+
+for message in st.session_state.messages:
+
+    if message["role"] == "user":
+
+        with st.chat_message(
+            "user",
+            avatar="👤"
+        ):
+
+            st.write(
+                message["content"]
+            )
+
+    else:
+
+        with st.chat_message(
+            "assistant",
+            avatar="🤖"
+        ):
+
+            st.write(
+                message["content"]
+            )
+
+            service_key = message.get(
+                "service_key"
+            )
+
+            if (
+                message.get("intent")
+                == "service_request"
+                and service_key in SERVICE_LINKS
+            ):
+
+                service = SERVICE_LINKS[
+                    service_key
+                ]
+
+                st.link_button(
+                    f"🔗 Open Official {service['name']} Source",
+                    service["url"],
+                    use_container_width=True
+                )
+
+                st.caption(
+                    f"Official source: {service['label']}"
+                )
+
+
+# ============================================================
+# GEMINI RESPONSE FUNCTION
 # ============================================================
 
 def get_nextstep_response(user_message):
@@ -812,7 +699,9 @@ Do not add any explanation outside the JSON.
                 raw_text
             )
 
-            data = json.loads(raw_text)
+            data = json.loads(
+                raw_text
+            )
 
             intent = data.get(
                 "intent",
@@ -853,7 +742,6 @@ Do not add any explanation outside the JSON.
         except Exception as error:
 
             last_error = error
-
             continue
 
     return {
@@ -868,7 +756,7 @@ Do not add any explanation outside the JSON.
 
 
 # ============================================================
-# PROCESS MESSAGE FUNCTION
+# PROCESS MESSAGE
 # ============================================================
 
 def process_message(user_message):
@@ -885,7 +773,9 @@ def process_message(user_message):
         avatar="👤"
     ):
 
-        st.write(user_message)
+        st.write(
+            user_message
+        )
 
     with st.chat_message(
         "assistant",
@@ -908,7 +798,9 @@ def process_message(user_message):
 
         if intent == "error":
 
-            st.error(answer)
+            st.error(
+                answer
+            )
 
             if "error" in result:
 
@@ -922,7 +814,9 @@ def process_message(user_message):
 
         else:
 
-            st.write(answer)
+            st.write(
+                answer
+            )
 
             if (
                 intent == "service_request"
@@ -954,17 +848,17 @@ def process_message(user_message):
 
 
 # ============================================================
-# PENDING SUGGESTED PROMPT
+# HANDLE SUGGESTED PROMPT
 # ============================================================
 
-if "pending_prompt" in st.session_state:
+if st.session_state.pending_prompt:
 
-    pending_prompt = st.session_state.pending_prompt
+    prompt = st.session_state.pending_prompt
 
-    del st.session_state.pending_prompt
+    st.session_state.pending_prompt = None
 
     process_message(
-        pending_prompt
+        prompt
     )
 
 
@@ -975,7 +869,6 @@ if "pending_prompt" in st.session_state:
 user_message = st.chat_input(
     "Tell me what you need help with..."
 )
-
 
 if user_message:
 
