@@ -23,6 +23,7 @@ st.set_page_config(
 
 @st.cache_resource
 def create_client():
+
     api_key = st.secrets.get("GEMINI_API_KEY")
 
     if not api_key:
@@ -44,7 +45,7 @@ MODEL_NAME = "gemini-3.8-flash"
 
 
 # ============================================================
-# NEXTSTEP AI INSTRUCTION
+# NEXTSTEP AI SYSTEM INSTRUCTION
 # ============================================================
 
 NEXTSTEP_SYSTEM_INSTRUCTION = """
@@ -53,7 +54,7 @@ You are NextStep AI, an intelligent public-service assistant.
 Your purpose is to help citizens understand and navigate public
 services and applications.
 
-You can help with:
+You can help with many types of public services, including:
 
 - Birth certificates
 - Death certificates
@@ -64,53 +65,62 @@ You can help with:
 - Licenses and permits
 - Public grievances
 - Municipal services
-- Education and scholarships
+- Education-related government services
 - Welfare services
 - Passport services
-- Aadhaar services
+- Aadhaar-related services
 - Property tax
 - Water connections
 - Voter services
 - Employment services
 - Railway services
 - Land services
-- Other legitimate public services
+- Other legitimate public-service requests
 
-IMPORTANT:
+IMPORTANT BEHAVIOR:
 
 1. First understand what the citizen needs.
 
-2. Do not assume that the citizen already knows the service name.
+2. Do not assume that the citizen already knows the exact
+   government service.
 
-3. If the citizen describes a problem indirectly, identify the
-   likely service.
+3. If the citizen describes a problem indirectly, identify
+   the possible service they may need.
 
 4. If important information is missing, ask a simple clarification
    question.
 
-5. When the request is clear, provide simple numbered steps.
+5. When the request is clear enough to identify a service,
+   provide practical numbered steps.
 
-6. Do not give an official source for every normal question.
+6. Give the steps before discussing the official source.
 
-7. Only classify the request as "service_request" when the citizen
-   is actually trying to apply for, obtain, renew, download, track,
-   report, or use a public service.
+7. Do not provide an official source for every normal question.
 
-8. General questions are "general".
+8. Only classify something as a service_request when the citizen
+   is actually trying to apply for, obtain, renew, download,
+   track, report, or use a government/public service.
 
-9. If more information is required before identifying the service,
-   use "clarification".
+9. General questions are NOT automatically service requests.
 
-10. Never invent government rules, fees, deadlines, eligibility
+10. Greetings and casual conversation are NOT service requests.
+
+11. Never invent government rules, fees, deadlines, eligibility
     requirements, documents, or websites.
 
-11. If location matters, ask for the state, city, or country.
-
-12. Do not include URLs in your response.
+12. If the exact procedure depends on location, ask for the
+    relevant state, city, or country when necessary.
 
 13. Use conversation history when answering follow-up questions.
 
-14. Keep answers concise, practical, friendly, and professional.
+14. Do not include URLs in your response.
+
+15. If the request is outside public services, politely explain
+    that your main purpose is helping with public services.
+
+16. Keep answers practical and easy for ordinary citizens to follow.
+
+17. Keep answers concise and avoid unnecessary information.
 
 Your response MUST be valid JSON with exactly these fields:
 
@@ -141,12 +151,12 @@ railway
 land_services
 other_government_service
 
-Use null when the request is general or clarification.
+Use null when the request is general or clarification is required.
 """
 
 
 # ============================================================
-# OFFICIAL SOURCES
+# OFFICIAL SERVICE LINKS
 # ============================================================
 
 SERVICE_LINKS = {
@@ -305,9 +315,9 @@ with st.sidebar:
     st.subheader("💬 Conversations")
 
     user_messages = [
-        m["content"]
-        for m in st.session_state.messages
-        if m["role"] == "user"
+        message["content"]
+        for message in st.session_state.messages
+        if message["role"] == "user"
     ]
 
     if not user_messages:
@@ -318,17 +328,17 @@ with st.sidebar:
 
     else:
 
-        for i, message in enumerate(
+        for index, message in enumerate(
             user_messages[-8:]
         ):
 
-            short = message[:45]
+            short_message = message[:45]
 
             if len(message) > 45:
-                short += "..."
+                short_message += "..."
 
             st.caption(
-                f"{i + 1}. {short}"
+                f"{index + 1}. {short_message}"
             )
 
     st.divider()
@@ -352,11 +362,11 @@ with st.sidebar:
 # HEADER
 # ============================================================
 
-left, right = st.columns(
+header_left, header_right = st.columns(
     [5, 1]
 )
 
-with left:
+with header_left:
 
     st.title("✦ NextStep AI")
 
@@ -364,7 +374,7 @@ with left:
         "Tell me what you need. I'll guide you to your next step."
     )
 
-with right:
+with header_right:
 
     st.success("AI Ready")
 
@@ -373,7 +383,7 @@ st.divider()
 
 
 # ============================================================
-# WELCOME
+# WELCOME SCREEN
 # ============================================================
 
 if not st.session_state.messages:
@@ -381,14 +391,18 @@ if not st.session_state.messages:
     st.info(
         "### 👋 Welcome to NextStep AI\n\n"
         "Describe what you need in your own words. "
-        "You don't have to know the exact government service name."
+        "You don't need to know the exact government service name."
     )
 
     st.subheader("🚀 Try a request")
 
-    col1, col2 = st.columns(2)
+    st.caption(
+        "Choose a suggestion or type your own request below."
+    )
 
-    with col1:
+    column1, column2 = st.columns(2)
+
+    with column1:
 
         if st.button(
             "📄 Income Certificate",
@@ -423,7 +437,7 @@ if not st.session_state.messages:
 
             st.rerun()
 
-    with col2:
+    with column2:
 
         if st.button(
             "🪪 Aadhaar Help",
@@ -437,7 +451,7 @@ if not st.session_state.messages:
             st.rerun()
 
         if st.button(
-            "🎓 Scholarship",
+            "🎓 Government Scholarship",
             use_container_width=True
         ):
 
@@ -460,23 +474,23 @@ if not st.session_state.messages:
 
     st.divider()
 
-    a, b, c = st.columns(3)
+    feature1, feature2, feature3 = st.columns(3)
 
-    with a:
+    with feature1:
 
         st.info(
             "🧠 **Understand**\n\n"
             "Explain your problem naturally."
         )
 
-    with b:
+    with feature2:
 
         st.info(
             "🧭 **Guide**\n\n"
             "Get clear next steps."
         )
 
-    with c:
+    with feature3:
 
         st.info(
             "🔗 **Connect**\n\n"
@@ -485,7 +499,7 @@ if not st.session_state.messages:
 
 
 # ============================================================
-# DISPLAY CHAT
+# DISPLAY CHAT HISTORY
 # ============================================================
 
 for message in st.session_state.messages:
@@ -541,13 +555,15 @@ for message in st.session_state.messages:
 # CONVERSATION HISTORY
 # ============================================================
 
-def get_history():
+def get_conversation_history():
 
-    recent = st.session_state.messages[-10:]
+    recent_messages = (
+        st.session_state.messages[-10:]
+    )
 
     history = []
 
-    for message in recent:
+    for message in recent_messages:
 
         role = (
             "Citizen"
@@ -563,12 +579,12 @@ def get_history():
 
 
 # ============================================================
-# CLEAN JSON
+# PARSE GEMINI JSON
 # ============================================================
 
-def parse_result(text):
+def parse_gemini_response(raw_text):
 
-    text = text.strip()
+    text = raw_text.strip()
 
     if text.startswith("```json"):
         text = text[7:]
@@ -579,8 +595,10 @@ def parse_result(text):
     if text.endswith("```"):
         text = text[:-3]
 
+    text = text.strip()
+
     data = json.loads(
-        text.strip()
+        text
     )
 
     intent = data.get(
@@ -592,7 +610,7 @@ def parse_result(text):
         "service_key"
     )
 
-    response = data.get(
+    response_text = data.get(
         "response",
         ""
     )
@@ -606,20 +624,29 @@ def parse_result(text):
         intent = "general"
 
     if service_key not in SERVICE_LINKS:
+
         service_key = None
 
     if intent != "service_request":
+
         service_key = None
+
+    if not response_text:
+
+        response_text = (
+            "Could you provide a little more information "
+            "about what you need?"
+        )
 
     return {
         "intent": intent,
         "service_key": service_key,
-        "response": response
+        "response": response_text
     }
 
 
 # ============================================================
-# GEMINI TEXT RESPONSE
+# TEXT GEMINI REQUEST
 # ============================================================
 
 def ask_gemini(user_message):
@@ -630,13 +657,15 @@ def ask_gemini(user_message):
             "intent": "error",
             "service_key": None,
             "response": (
-                "Gemini API key is not configured in "
+                "The Gemini API key is missing from "
                 "Streamlit Secrets."
             ),
-            "error": "GEMINI_API_KEY is missing."
+            "error": (
+                "GEMINI_API_KEY was not found."
+            )
         }
 
-    history = get_history()
+    history = get_conversation_history()
 
     prompt = f"""
 CONVERSATION HISTORY:
@@ -649,18 +678,25 @@ LATEST CITIZEN MESSAGE:
 
 Understand the latest citizen message.
 
-If it is a clear service request:
-- identify the service
-- give simple numbered steps
+If it is a clear public-service request:
+1. Identify the relevant service.
+2. Give simple numbered steps.
 
 If important information is missing:
-- ask one useful clarification question
+Ask a useful clarification question.
 
 If it is a general question:
-- answer normally
-- do not attach a service source
+Answer normally without attaching an official source.
 
-Return ONLY JSON.
+Return ONLY valid JSON.
+
+Required format:
+
+{{
+  "intent": "general" | "clarification" | "service_request",
+  "service_key": "service key" | null,
+  "response": "your response to the citizen"
+}}
 """
 
     try:
@@ -677,13 +713,11 @@ Return ONLY JSON.
                     NEXTSTEP_SYSTEM_INSTRUCTION
                 ),
 
-                response_mime_type="application/json",
-
-                temperature=0.2
+                response_mime_type="application/json"
             )
         )
 
-        return parse_result(
+        return parse_gemini_response(
             response.text
         )
 
@@ -695,12 +729,14 @@ Return ONLY JSON.
             "response": (
                 "Gemini could not process the request."
             ),
-            "error": str(error)
+            "error": (
+                f"{type(error).__name__}: {str(error)}"
+            )
         }
 
 
 # ============================================================
-# GEMINI VOICE RESPONSE
+# VOICE GEMINI REQUEST
 # ============================================================
 
 def ask_gemini_voice(audio_file):
@@ -711,20 +747,31 @@ def ask_gemini_voice(audio_file):
             "intent": "error",
             "service_key": None,
             "response": (
-                "Gemini API key is not configured in "
+                "The Gemini API key is missing from "
                 "Streamlit Secrets."
             ),
-            "error": "GEMINI_API_KEY is missing."
+            "error": (
+                "GEMINI_API_KEY was not found."
+            )
         }
 
     audio_bytes = audio_file.getvalue()
+
+    if not audio_bytes:
+
+        return {
+            "intent": "error",
+            "service_key": None,
+            "response": "The voice recording was empty.",
+            "error": "No audio bytes received."
+        }
 
     mime_type = (
         audio_file.type
         or "audio/wav"
     )
 
-    history = get_history()
+    history = get_conversation_history()
 
     audio_part = types.Part.from_bytes(
         data=audio_bytes,
@@ -732,34 +779,35 @@ def ask_gemini_voice(audio_file):
     )
 
     prompt = f"""
-The citizen has sent a voice request.
+The citizen has sent a voice message.
 
-Listen to the audio and understand what the citizen wants.
+Listen to the voice message and understand what the citizen
+is asking.
 
 Do NOT return a transcription.
 
-Directly respond as NextStep AI.
+Respond directly as NextStep AI.
 
 Previous conversation:
 
 {history}
 
-If the request is clear:
-- identify the service
+If the citizen clearly requests a public service:
+- identify the relevant service
 - provide simple numbered steps
 
-If information is missing:
+If important information is missing:
 - ask a clarification question
 
 If it is a general question:
 - answer normally
 
-Return ONLY valid JSON using:
+Return ONLY valid JSON:
 
 {{
   "intent": "general" | "clarification" | "service_request",
   "service_key": "service key" | null,
-  "response": "your response"
+  "response": "your response to the citizen"
 }}
 """
 
@@ -780,13 +828,11 @@ Return ONLY valid JSON using:
                     NEXTSTEP_SYSTEM_INSTRUCTION
                 ),
 
-                response_mime_type="application/json",
-
-                temperature=0.2
+                response_mime_type="application/json"
             )
         )
 
-        return parse_result(
+        return parse_gemini_response(
             response.text
         )
 
@@ -798,15 +844,17 @@ Return ONLY valid JSON using:
             "response": (
                 "Gemini could not process the voice request."
             ),
-            "error": str(error)
+            "error": (
+                f"{type(error).__name__}: {str(error)}"
+            )
         }
 
 
 # ============================================================
-# SHOW RESULT
+# DISPLAY RESULT
 # ============================================================
 
-def show_result(result):
+def display_result(result):
 
     if result["intent"] == "error":
 
@@ -814,8 +862,13 @@ def show_result(result):
             result["response"]
         )
 
+        st.warning(
+            "The technical error below is important. "
+            "If Gemini is still not connecting, send me this exact error."
+        )
+
         with st.expander(
-            "🔧 Technical error"
+            "🔧 Show technical error"
         ):
 
             st.code(
@@ -856,20 +909,20 @@ def show_result(result):
 
 
 # ============================================================
-# PROCESS TEXT
+# PROCESS TEXT MESSAGE
 # ============================================================
 
-def process_text(message):
+def process_text_message(user_message):
 
-    message = message.strip()
+    user_message = user_message.strip()
 
-    if not message:
+    if not user_message:
         return
 
     st.session_state.messages.append(
         {
             "role": "user",
-            "content": message
+            "content": user_message
         }
     )
 
@@ -879,7 +932,7 @@ def process_text(message):
     ):
 
         st.write(
-            message
+            user_message
         )
 
     with st.chat_message(
@@ -892,10 +945,10 @@ def process_text(message):
         ):
 
             result = ask_gemini(
-                message
+                user_message
             )
 
-        show_result(
+        display_result(
             result
         )
 
@@ -910,10 +963,10 @@ def process_text(message):
 
 
 # ============================================================
-# PROCESS VOICE
+# PROCESS VOICE MESSAGE
 # ============================================================
 
-def process_voice(audio_file):
+def process_voice_message(audio_file):
 
     if audio_file is None:
         return
@@ -958,7 +1011,7 @@ def process_voice(audio_file):
                 audio_file
             )
 
-        show_result(
+        display_result(
             result
         )
 
@@ -980,7 +1033,7 @@ def process_voice(audio_file):
 
 
 # ============================================================
-# SUGGESTED PROMPT
+# HANDLE SUGGESTED PROMPT
 # ============================================================
 
 if st.session_state.pending_prompt:
@@ -989,7 +1042,7 @@ if st.session_state.pending_prompt:
 
     st.session_state.pending_prompt = None
 
-    process_text(
+    process_text_message(
         prompt
     )
 
@@ -1002,51 +1055,57 @@ st.divider()
 
 st.subheader("💬 Ask NextStep AI")
 
-text_col, voice_col, send_col = st.columns(
+st.caption(
+    "Type your request or use the microphone."
+)
+
+text_column, voice_column, send_column = st.columns(
     [7, 2, 1]
 )
 
-with text_col:
+with text_column:
 
-    message = st.text_input(
+    typed_message = st.text_input(
         "Message",
         placeholder="Tell me what you need help with...",
-        label_visibility="collapsed"
+        label_visibility="collapsed",
+        key="typed_message"
     )
 
-with voice_col:
+with voice_column:
 
-    audio = st.audio_input(
+    voice_input = st.audio_input(
         "🎙️ Voice",
-        label_visibility="collapsed"
+        label_visibility="collapsed",
+        key="voice_input"
     )
 
-with send_col:
+with send_column:
 
-    send = st.button(
+    send_button = st.button(
         "➤",
         use_container_width=True
     )
 
 
 # ============================================================
-# SEND
+# SEND TEXT
 # ============================================================
 
-if send:
+if send_button:
 
-    if message:
+    if typed_message:
 
-        process_text(
-            message
+        process_text_message(
+            typed_message
         )
 
         st.rerun()
 
-    elif audio:
+    elif voice_input:
 
-        process_voice(
-            audio
+        process_voice_message(
+            voice_input
         )
 
         st.rerun()
@@ -1054,7 +1113,7 @@ if send:
     else:
 
         st.warning(
-            "Type a message or record a voice request."
+            "Please type a message or record a voice request."
         )
 
 
@@ -1062,10 +1121,10 @@ if send:
 # AUTO PROCESS VOICE
 # ============================================================
 
-if audio and not send:
+if voice_input and not send_button:
 
-    process_voice(
-        audio
+    process_voice_message(
+        voice_input
     )
 
     st.rerun()
