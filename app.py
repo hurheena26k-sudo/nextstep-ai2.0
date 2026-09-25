@@ -1,10 +1,7 @@
 import streamlit as st
 import json
 import re
-
 from google import genai
-from google.genai import types
-from streamlit_mic_recorder import mic_recorder
 
 
 # ============================================================
@@ -29,7 +26,7 @@ client = genai.Client(
 
 
 # ============================================================
-# MODELS
+# MODEL FALLBACK
 # ============================================================
 
 MODELS = [
@@ -41,7 +38,7 @@ MODELS = [
 
 
 # ============================================================
-# NEXTSTEP AI SYSTEM INSTRUCTION
+# NEXTSTEP AI INSTRUCTION
 # ============================================================
 
 NEXTSTEP_SYSTEM_INSTRUCTION = """
@@ -281,12 +278,9 @@ if "messages" not in st.session_state:
 if "pending_prompt" not in st.session_state:
     st.session_state.pending_prompt = None
 
-if "voice_text" not in st.session_state:
-    st.session_state.voice_text = ""
-
 
 # ============================================================
-# VISUAL STYLING
+# SAFE VISUAL STYLING
 # ============================================================
 
 st.markdown(
@@ -356,6 +350,13 @@ st.markdown(
         font-weight: 650;
     }
 
+    .voice-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #5f6b7d;
+        margin-bottom: 4px;
+    }
+
     </style>
     """,
     unsafe_allow_html=True
@@ -368,7 +369,9 @@ st.markdown(
 
 with st.sidebar:
 
-    st.markdown("## 🤖 NextStep AI")
+    st.markdown(
+        "## 🤖 NextStep AI"
+    )
 
     st.caption(
         "Your intelligent public-service assistant"
@@ -383,8 +386,6 @@ with st.sidebar:
 
         st.session_state.messages = []
         st.session_state.pending_prompt = None
-        st.session_state.voice_text = ""
-
         st.rerun()
 
     st.divider()
@@ -426,7 +427,7 @@ with st.sidebar:
 
 
 # ============================================================
-# BRANDING
+# TOP BRANDING
 # ============================================================
 
 st.markdown(
@@ -636,72 +637,7 @@ for message in st.session_state.messages:
 
 
 # ============================================================
-# TRANSCRIBE VOICE
-# ============================================================
-
-def transcribe_audio(audio_bytes):
-
-    prompt = """
-Transcribe the citizen's speech exactly and clearly.
-
-Rules:
-- Return ONLY the transcription.
-- Do not explain anything.
-- Do not add greetings.
-- Do not summarize.
-- Preserve the meaning of the spoken request.
-- Correct obvious speech-recognition noise when the intended
-  words are clear.
-- If the citizen mentions a government service, preserve
-  the service name accurately.
-"""
-
-    last_error = None
-
-    for model_name in MODELS:
-
-        try:
-
-            response = client.models.generate_content(
-                model=model_name,
-                contents=[
-                    types.Part.from_bytes(
-                        data=audio_bytes,
-                        mime_type="audio/wav"
-                    ),
-                    prompt
-                ]
-            )
-
-            text = response.text.strip()
-
-            text = re.sub(
-                r"^```.*?\n",
-                "",
-                text,
-                flags=re.DOTALL
-            )
-
-            text = re.sub(
-                r"\n```$",
-                "",
-                text
-            )
-
-            if text:
-
-                return text.strip()
-
-        except Exception as error:
-
-            last_error = error
-            continue
-
-    return None
-
-
-# ============================================================
-# GEMINI RESPONSE
+# GEMINI RESPONSE FUNCTION
 # ============================================================
 
 def get_nextstep_response(user_message):
@@ -827,10 +763,83 @@ Do not add any explanation outside the JSON.
 
 
 # ============================================================
+# VOICE TRANSCRIPTION FUNCTION
+# ============================================================
+
+def transcribe_voice(audio_file):
+
+    if audio_file is None:
+        return None, None
+
+    audio_bytes = audio_file.getvalue()
+
+    if not audio_bytes:
+        return None, "No audio was recorded."
+
+    last_error = None
+
+    for model_name in MODELS:
+
+        try:
+
+            response = client.models.generate_content(
+                model=model_name,
+                contents=[
+                    {
+                        "inline_data": {
+                            "mime_type": "audio/wav",
+                            "data": audio_bytes
+                        }
+                    },
+                    """
+                    Listen to this audio carefully.
+
+                    Transcribe exactly what the citizen said.
+
+                    Return ONLY the spoken text.
+                    Do not add explanations.
+                    Do not summarize.
+                    Do not answer the citizen.
+                    If the audio is unclear, return:
+                    AUDIO_UNCLEAR
+                    """
+                ]
+            )
+
+            transcript = response.text.strip()
+
+            if not transcript:
+                return None, "I couldn't hear anything clearly."
+
+            if transcript == "AUDIO_UNCLEAR":
+                return None, (
+                    "I couldn't understand the recording clearly. "
+                    "Please try speaking again."
+                )
+
+            return transcript, None
+
+        except Exception as error:
+
+            last_error = error
+            continue
+
+    return None, (
+        "I couldn't process the voice recording right now. "
+        "Please try again."
+    )
+
+
+# ============================================================
 # PROCESS MESSAGE
 # ============================================================
 
 def process_message(user_message):
+
+    if not user_message:
+        return
+
+    user_message = user_message.strip()
 
     if not user_message:
         return
@@ -935,6 +944,8 @@ if st.session_state.pending_prompt:
         prompt
     )
 
+    st.rerun()
+
 
 # ============================================================
 # INPUT AREA
@@ -943,7 +954,7 @@ if st.session_state.pending_prompt:
 st.divider()
 
 input_col, voice_col = st.columns(
-    [8, 1],
+    [7, 1],
     vertical_alignment="bottom"
 )
 
@@ -954,10 +965,11 @@ input_col, voice_col = st.columns(
 
 with input_col:
 
-    typed_message = st.text_input(
-        "Message",
+    text_message = st.text_input(
+        "💬 Message",
         placeholder="Tell me what you need help with...",
-        label_visibility="collapsed"
+        label_visibility="collapsed",
+        key="text_message"
     )
 
 
@@ -967,60 +979,66 @@ with input_col:
 
 with voice_col:
 
-    audio = mic_recorder(
-        start_prompt="🎙️",
-        stop_prompt="⏹️",
-        just_once=True,
-        use_container_width=True,
-        format="wav",
-        key="voice_recorder"
+    audio_file = st.audio_input(
+        "🎙️",
+        key="voice_input",
+        help="Tap to record your request"
     )
 
 
 # ============================================================
-# HANDLE VOICE INPUT
+# SEND TEXT MESSAGE
 # ============================================================
 
-if audio is not None:
-
-    audio_bytes = audio.get("bytes")
-
-    if audio_bytes:
-
-        with st.spinner(
-            "🎙️ Listening and converting your voice..."
-        ):
-
-            voice_text = transcribe_audio(
-                audio_bytes
-            )
-
-        if voice_text:
-
-            st.session_state.voice_text = voice_text
-
-            st.success(
-                f"🎙️ I heard: **{voice_text}**"
-            )
-
-            st.session_state.pending_prompt = voice_text
-
-            st.rerun()
-
-        else:
-
-            st.error(
-                "I couldn't understand the recording. "
-                "Please try speaking again clearly."
-            )
-
-
-# ============================================================
-# HANDLE TYPED MESSAGE
-# ============================================================
-
-if typed_message:
+if text_message:
 
     process_message(
-        typed_message
+        text_message
     )
+
+    st.rerun()
+
+
+# ============================================================
+# PROCESS VOICE MESSAGE
+# ============================================================
+
+if audio_file is not None:
+
+    if "processed_audio_id" not in st.session_state:
+
+        st.session_state.processed_audio_id = None
+
+    current_audio_id = (
+        getattr(audio_file, "file_id", None)
+        or hash(audio_file.getvalue())
+    )
+
+    if (
+        st.session_state.processed_audio_id
+        != current_audio_id
+    ):
+
+        st.session_state.processed_audio_id = current_audio_id
+
+        with st.spinner(
+            "🎙️ Understanding your voice..."
+        ):
+
+            transcript, voice_error = transcribe_voice(
+                audio_file
+            )
+
+        if voice_error:
+
+            st.warning(
+                voice_error
+            )
+
+        elif transcript:
+
+            process_message(
+                transcript
+            )
+
+            st.rerun()
