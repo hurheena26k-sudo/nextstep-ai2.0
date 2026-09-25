@@ -1,471 +1,401 @@
 import streamlit as st
-import streamlit.components.v1 as components
-import json
 from google import genai
-from google.genai import types
-from agent import get_service_information, detect_intent
+import time
 
 
-# ---------- PAGE CONFIG ----------
+# =========================================================
+# PAGE CONFIGURATION
+# =========================================================
 
 st.set_page_config(
     page_title="NextStep AI",
     page_icon="🧭",
-    layout="centered"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 
-# ---------- UI ----------
+# =========================================================
+# GEMINI CONNECTION
+# =========================================================
 
-st.title("🧭 NextStep AI")
-st.subheader("Your AI guide for public services")
+client = genai.Client(
+    api_key=st.secrets["GEMINI_API_KEY"]
+)
 
-st.write(
-    "Tell me what public service you need. "
-    "Type your request or use the microphone."
+MODEL_NAME = "gemini-3.8-flash"
+
+
+# =========================================================
+# NEXTSTEP AI INSTRUCTIONS
+# =========================================================
+
+NEXTSTEP_SYSTEM_INSTRUCTION = """
+You are NextStep AI, an intelligent public-service assistant.
+
+Your purpose is to help citizens understand and navigate public
+services and applications.
+
+You can help with many types of public services, including:
+
+- Birth certificates
+- Death certificates
+- Income certificates
+- Caste certificates
+- Residence or domicile certificates
+- Government scheme applications
+- Licenses and permits
+- Public grievances
+- Municipal services
+- Education-related government services
+- Welfare services
+- Other legitimate public-service requests
+
+IMPORTANT BEHAVIOR:
+
+1. Start by understanding what the citizen needs.
+
+2. Do not assume the citizen knows the official service name.
+
+3. Understand natural language and identify the likely service.
+
+4. Do not ask unnecessary questions.
+
+5. Ask a follow-up question only when important information is missing.
+
+6. Explain the process in simple step-by-step language.
+
+7. Explain likely required documents only when appropriate.
+
+8. Never invent government rules, fees, deadlines, eligibility requirements,
+   or official websites.
+
+9. If the procedure depends on location, ask for the state or city.
+
+10. If reliable information is unavailable, clearly say what needs to be verified.
+
+11. Do not restrict yourself to a fixed list of services.
+
+12. Keep responses friendly, clear, professional, and easy to understand.
+
+13. Always guide the citizen toward their NEXT STEP.
+"""
+
+
+# =========================================================
+# GEMINI RESPONSE FUNCTION
+# =========================================================
+
+def ask_nextstep_ai(user_message, conversation_history):
+
+    models_to_try = [
+        "gemini-3.8-flash",
+        "gemini-3.7-flash",
+        "gemini-3.6-flash"
+    ]
+
+    history_text = ""
+
+    for message in conversation_history:
+        history_text += (
+            f'{message["role"].upper()}: '
+            f'{message["content"]}\n'
+        )
+
+    prompt = f"""
+{NEXTSTEP_SYSTEM_INSTRUCTION}
+
+Previous conversation:
+{history_text}
+
+Current citizen message:
+{user_message}
+
+Use the previous conversation when it is relevant.
+
+Understand what the citizen needs.
+
+If the citizen has already provided information earlier,
+do not ask for the same information again.
+
+If an important piece of information is missing, ask for it.
+
+Respond naturally as NextStep AI and guide the citizen toward
+their next step.
+"""
+
+    for model_name in models_to_try:
+
+        for attempt in range(2):
+
+            try:
+
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt
+                )
+
+                if response and response.text:
+                    return response.text.strip()
+
+            except Exception as e:
+
+                error_text = str(e)
+
+                if (
+                    "503" in error_text
+                    or "UNAVAILABLE" in error_text
+                    or "429" in error_text
+                ):
+
+                    if attempt == 0:
+                        time.sleep(2)
+                        continue
+
+                    break
+
+                return (
+                    "I'm temporarily unable to process your request. "
+                    "Please try again."
+                )
+
+    return (
+        "I'm NextStep AI. My AI service is temporarily busy. "
+        "Please try your request again in a moment."
+    )
+
+
+# =========================================================
+# SESSION STATE
+# =========================================================
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+if "conversations" not in st.session_state:
+    st.session_state.conversations = {}
+
+if "current_conversation" not in st.session_state:
+    st.session_state.current_conversation = "New Conversation"
+
+
+# =========================================================
+# SIDEBAR
+# =========================================================
+
+with st.sidebar:
+
+    st.markdown(
+        """
+        <div style="text-align:center;">
+            <div style="font-size:45px;">🧭</div>
+            <h2>NextStep AI</h2>
+            <p>Your public-service guide</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.divider()
+
+    if st.button(
+        "＋ New Conversation",
+        use_container_width=True
+    ):
+
+        st.session_state.messages = []
+
+        st.session_state.current_conversation = (
+            "New Conversation"
+        )
+
+        st.rerun()
+
+    st.divider()
+
+    st.subheader("💬 Previous Conversations")
+
+    if not st.session_state.conversations:
+
+        st.caption("No previous conversations yet.")
+
+    else:
+
+        for name in list(
+            st.session_state.conversations.keys()
+        ):
+
+            col1, col2 = st.columns([4, 1])
+
+            with col1:
+
+                if st.button(
+                    name,
+                    key=f"open_{name}",
+                    use_container_width=True
+                ):
+
+                    st.session_state.messages = (
+                        st.session_state
+                        .conversations[name]
+                        .copy()
+                    )
+
+                    st.session_state.current_conversation = name
+
+                    st.rerun()
+
+            with col2:
+
+                if st.button(
+                    "🗑️",
+                    key=f"delete_{name}"
+                ):
+
+                    del st.session_state.conversations[name]
+
+                    st.session_state.messages = []
+
+                    st.session_state.current_conversation = (
+                        "New Conversation"
+                    )
+
+                    st.rerun()
+
+
+# =========================================================
+# MAIN HEADER
+# =========================================================
+
+st.markdown(
+    """
+    <div style="text-align:center; padding-top:20px;">
+
+        <div style="font-size:65px;">
+            🧭
+        </div>
+
+        <h1 style="font-size:44px; margin-bottom:5px;">
+            NextStep AI
+        </h1>
+
+        <p style="font-size:21px;">
+            Your intelligent guide to public services
+        </p>
+
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
 st.divider()
 
 
-# ---------- SIDEBAR ----------
+# =========================================================
+# WELCOME SCREEN
+# =========================================================
 
-with st.sidebar:
+if not st.session_state.messages:
 
-    st.header("🧭 NextStep AI")
+    st.markdown(
+        """
+        <div style="
+            text-align:center;
+            padding:25px 20px 20px 20px;
+        ">
 
-    st.write("Supported services:")
+            <h2>
+                👋 What do you need help with?
+            </h2>
 
-    st.markdown("""
-    📄 **Birth Certificate**
+            <p style="font-size:18px;">
+                Tell me what you are trying to apply for,
+                understand, or solve.
+            </p>
 
-    🏠 **Property Tax**
+            <p style="font-size:16px;">
+                You don't need to know the official service name.
+                Just describe what you need in your own words.
+            </p>
 
-    🏛️ **Municipal Complaint**
-    """)
-
-    st.divider()
-
-    if st.button("🗑️ Clear Conversation"):
-
-        st.session_state.messages = []
-
-        st.rerun()
-
-    st.caption(
-        "Always verify important information "
-        "with the relevant official department."
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
 
-# ---------- API CONNECTION ----------
-
-api_key = st.secrets["GEMINI_API_KEY"]
-
-client = genai.Client(
-    api_key=api_key
-)
-
-
-# ---------- MEMORY ----------
-
-if "messages" not in st.session_state:
-
-    st.session_state.messages = []
-
+# =========================================================
+# DISPLAY CHAT HISTORY
+# =========================================================
 
 for message in st.session_state.messages:
 
     with st.chat_message(message["role"]):
 
-        st.markdown(
-            message["content"]
-        )
+        st.write(message["content"])
 
 
-# ---------- CHAT INPUT WITH MICROPHONE ----------
+# =========================================================
+# USER INPUT
+# =========================================================
 
-prompt = st.chat_input(
-    "💬 Type your request or tap 🎙️ to speak",
-    accept_audio=True,
-    audio_sample_rate=16000
+user_message = st.chat_input(
+    "Tell NextStep AI what you need help with..."
 )
 
 
-# ---------- PROCESS INPUT ----------
+# =========================================================
+# PROCESS USER MESSAGE
+# =========================================================
 
-user_request = None
+if user_message:
 
+    # Save user message
+    st.session_state.messages.append(
+        {
+            "role": "user",
+            "content": user_message
+        }
+    )
 
-if prompt:
-
-    # Normal typed message
-    if prompt.text:
-
-        user_request = prompt.text.strip()
-
-
-    # Voice message
-    elif prompt.audio:
-
-        with st.spinner(
-            "🎙️ Understanding your request..."
-        ):
-
-            try:
-
-                audio_bytes = prompt.audio.getvalue()
-
-                transcription_response = (
-                    client.models.generate_content(
-                        model="gemini-3.5-flash-lite",
-                        contents=[
-                            types.Part.from_bytes(
-                                data=audio_bytes,
-                                mime_type="audio/wav"
-                            ),
-                            """
-Transcribe the citizen's speech.
-
-Return ONLY the transcription.
-
-Do not answer the citizen.
-Do not add explanations.
-Do not rewrite or summarize the request.
-
-Preserve the meaning and wording as accurately as possible.
-"""
-                        ]
-                    )
-                )
-
-                user_request = (
-                    transcription_response.text.strip()
-                )
-
-                if user_request:
-
-                    st.caption(
-                        f"🎙️ Heard: {user_request}"
-                    )
-
-            except Exception as error:
-
-                st.error(
-                    "I couldn't understand the voice input. "
-                    "Please try again or type your request."
-                )
-
-                user_request = None
-
-
-# ---------- AI PROCESS ----------
-
-if user_request:
-
-    # ---------- USER MESSAGE ----------
-
+    # Display user message
     with st.chat_message("user"):
 
-        st.markdown(user_request)
+        st.write(user_message)
 
-
-    st.session_state.messages.append({
-        "role": "user",
-        "content": user_request
-    })
-
-
-    # ---------- CONVERSATION ----------
-
-    conversation = "\n".join(
-        f'{message["role"].upper()}: '
-        f'{message["content"]}'
-        for message in st.session_state.messages
-    )
-
-
-    # ---------- IDENTIFY SERVICE ----------
-
-    service_information = (
-        get_service_information(
-            user_request
-        )
-    )
-
-    intent = None
-
-
-    if service_information is not None:
-
-        intent = detect_intent(
-            user_request,
-            service_information
-        )
-
-
-    # ---------- CHECK PREVIOUS MESSAGES ----------
-
-    if service_information is None:
-
-        previous_user_messages = [
-            message["content"]
-            for message in st.session_state.messages[:-1]
-            if message["role"] == "user"
-        ]
-
-
-        for previous_request in reversed(
-            previous_user_messages
-        ):
-
-            service_information = (
-                get_service_information(
-                    previous_request
-                )
-            )
-
-
-            if service_information is not None:
-
-                intent = detect_intent(
-                    user_request,
-                    service_information
-                )
-
-                break
-
-
-    # ---------- ASSISTANT ----------
-
+    # Generate AI response
     with st.chat_message("assistant"):
 
-        if service_information is None:
+        with st.spinner("NextStep AI is thinking..."):
 
-            response_text = (
-                "I don't currently have information about "
-                "this service in my service database.\n\n"
-                "Please check the relevant official "
-                "government department or portal for the "
-                "current procedure and requirements."
+            response = ask_nextstep_ai(
+                user_message,
+                st.session_state.messages[:-1]
             )
 
-            st.warning(response_text)
-
-
-        else:
-
-            service_information_json = json.dumps(
-                service_information,
-                indent=2
-            )
-
-
-            with st.spinner(
-                "🧠 Preparing your NextStep..."
-            ):
-
-                try:
-
-                    response = (
-                        client.models.generate_content(
-                            model="gemini-3.5-flash-lite",
-                            contents=f"""
-You are NextStep AI, an AI assistant for public services.
-
-You are having a conversation with a citizen.
-
-Use the previous conversation to understand follow-up messages.
-
-SERVICE INFORMATION:
-{service_information_json}
-
-DETECTED INTENT:
-{intent}
-
-CONVERSATION:
-{conversation}
-
-Follow these rules:
-
-1. Understand the citizen's current request.
-2. Use the identified service information as your main source.
-3. Use the detected intent to understand what the citizen wants.
-4. If the request is ambiguous, ask ONE short clarification question.
-5. Do not guess missing information.
-6. Give the relevant department.
-7. Give available documents.
-8. Give simple step-by-step instructions.
-9. Mention important notes.
-10. Provide the official source if available.
-11. Never invent government rules, documents, fees,
-deadlines, or procedures.
-12. If something is uncertain, tell the citizen to verify
-it with the relevant official department.
-
-Format the response like this:
-
-### 🧭 Your NextStep Plan
-
-**Service:** [service name]
-
-**🏢 Department:**
-[department]
-
-**📄 Documents to Prepare:**
-- [document 1]
-- [document 2]
-
-**📝 Steps:**
-1. [step 1]
-2. [step 2]
-3. [step 3]
-
-**⚠️ Important Note:**
-[important note]
-
-**🔗 Source:**
-[source if available]
-
-Keep the response simple and practical.
-"""
-                        )
-                    )
-
-
-                    response_text = response.text
-
-
-                    # ---------- DISPLAY RESPONSE ----------
-
-                    st.markdown(
-                        response_text
-                    )
-
-
-                    st.caption(
-                        f"🧠 Service: "
-                        f"{service_information['name']}"
-                    )
-
-
-                    if intent:
-
-                        st.caption(
-                            f"🎯 Intent: {intent}"
-                        )
-
-
-                    # ---------- READ ALOUD ----------
-
-                    safe_text = (
-                        response_text
-                        .replace("\\", "\\\\")
-                        .replace("`", "\\`")
-                        .replace("\n", " ")
-                    )
-
-
-                    components.html(
-                        f"""
-                        <script>
-
-                        function speakNextStep() {{
-
-                            window.speechSynthesis.cancel();
-
-                            const text =
-                                `{safe_text}`;
-
-                            const speech =
-                                new SpeechSynthesisUtterance(
-                                    text
-                                );
-
-                            speech.rate = 0.95;
-                            speech.pitch = 1;
-
-                            window.speechSynthesis.speak(
-                                speech
-                            );
-                        }}
-
-
-                        function stopNextStep() {{
-
-                            window.speechSynthesis.cancel();
-
-                        }}
-
-                        </script>
-
-                        <div style="
-                            display:flex;
-                            gap:8px;
-                            margin-top:8px;
-                        ">
-
-                            <button
-                                onclick="speakNextStep()"
-                                style="
-                                    padding:8px 14px;
-                                    border-radius:8px;
-                                    border:1px solid #ccc;
-                                    background:white;
-                                    cursor:pointer;
-                                "
-                            >
-                                🔊 Read Aloud
-                            </button>
-
-                            <button
-                                onclick="stopNextStep()"
-                                style="
-                                    padding:8px 14px;
-                                    border-radius:8px;
-                                    border:1px solid #ccc;
-                                    background:white;
-                                    cursor:pointer;
-                                "
-                            >
-                                ⏹️ Stop
-                            </button>
-
-                        </div>
-                        """,
-                        height=55
-                    )
-
-
-                except Exception:
-
-                    response_text = (
-                        "The AI could not generate a response. "
-                        "Please try again."
-                    )
-
-                    st.error(
-                        response_text
-                    )
-
-
-    # ---------- SAVE ASSISTANT MESSAGE ----------
-
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": response_text
-    })
-
-
-# ---------- FOOTER ----------
-
-st.divider()
-
-st.caption(
-    "🧭 NextStep AI • Agentic AI for Smart Cities & Public Services"
-)
-
-st.caption(
-    "Information should be verified with the relevant "
-    "official department before taking action."
-)
+        st.write(response)
+
+    # Save AI response
+    st.session_state.messages.append(
+        {
+            "role": "assistant",
+            "content": response
+        }
+    )
+
+    # Create conversation name
+    conversation_name = (
+        user_message[:40].strip()
+    )
+
+    if not conversation_name:
+        conversation_name = "New Conversation"
+
+    # Save conversation
+    st.session_state.conversations[
+        conversation_name
+    ] = st.session_state.messages.copy()
+
+    st.session_state.current_conversation = (
+        conversation_name
+    )
