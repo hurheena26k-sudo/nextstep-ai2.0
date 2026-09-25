@@ -72,9 +72,10 @@ Respond as NextStep AI and guide the citizen toward their next step.
             return response.text.strip()
 
         return "I'm sorry, I couldn't generate a response right now."
-
-    except Exception:
-        return "I'm temporarily unable to connect to the AI service. Please try again."
+    except Exception as e:
+        st.error(f"Gemini error: {e}")
+        return "Gemini connection failed."
+    
 
 # =========================================================
 # SESSION STATE
