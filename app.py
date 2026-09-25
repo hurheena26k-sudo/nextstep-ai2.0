@@ -1,7 +1,10 @@
 import streamlit as st
 import json
 import re
+
 from google import genai
+from google.genai import types
+from streamlit_mic_recorder import mic_recorder
 
 
 # ============================================================
@@ -26,7 +29,7 @@ client = genai.Client(
 
 
 # ============================================================
-# MODEL FALLBACK
+# MODELS
 # ============================================================
 
 MODELS = [
@@ -38,7 +41,7 @@ MODELS = [
 
 
 # ============================================================
-# NEXTSTEP AI INSTRUCTION
+# NEXTSTEP AI SYSTEM INSTRUCTION
 # ============================================================
 
 NEXTSTEP_SYSTEM_INSTRUCTION = """
@@ -278,9 +281,12 @@ if "messages" not in st.session_state:
 if "pending_prompt" not in st.session_state:
     st.session_state.pending_prompt = None
 
+if "voice_text" not in st.session_state:
+    st.session_state.voice_text = ""
+
 
 # ============================================================
-# SAFE VISUAL STYLING
+# VISUAL STYLING
 # ============================================================
 
 st.markdown(
@@ -362,9 +368,7 @@ st.markdown(
 
 with st.sidebar:
 
-    st.markdown(
-        "## 🤖 NextStep AI"
-    )
+    st.markdown("## 🤖 NextStep AI")
 
     st.caption(
         "Your intelligent public-service assistant"
@@ -379,6 +383,8 @@ with st.sidebar:
 
         st.session_state.messages = []
         st.session_state.pending_prompt = None
+        st.session_state.voice_text = ""
+
         st.rerun()
 
     st.divider()
@@ -420,7 +426,7 @@ with st.sidebar:
 
 
 # ============================================================
-# TOP BRANDING
+# BRANDING
 # ============================================================
 
 st.markdown(
@@ -630,7 +636,72 @@ for message in st.session_state.messages:
 
 
 # ============================================================
-# GEMINI RESPONSE FUNCTION
+# TRANSCRIBE VOICE
+# ============================================================
+
+def transcribe_audio(audio_bytes):
+
+    prompt = """
+Transcribe the citizen's speech exactly and clearly.
+
+Rules:
+- Return ONLY the transcription.
+- Do not explain anything.
+- Do not add greetings.
+- Do not summarize.
+- Preserve the meaning of the spoken request.
+- Correct obvious speech-recognition noise when the intended
+  words are clear.
+- If the citizen mentions a government service, preserve
+  the service name accurately.
+"""
+
+    last_error = None
+
+    for model_name in MODELS:
+
+        try:
+
+            response = client.models.generate_content(
+                model=model_name,
+                contents=[
+                    types.Part.from_bytes(
+                        data=audio_bytes,
+                        mime_type="audio/wav"
+                    ),
+                    prompt
+                ]
+            )
+
+            text = response.text.strip()
+
+            text = re.sub(
+                r"^```.*?\n",
+                "",
+                text,
+                flags=re.DOTALL
+            )
+
+            text = re.sub(
+                r"\n```$",
+                "",
+                text
+            )
+
+            if text:
+
+                return text.strip()
+
+        except Exception as error:
+
+            last_error = error
+            continue
+
+    return None
+
+
+# ============================================================
+# GEMINI RESPONSE
 # ============================================================
 
 def get_nextstep_response(user_message):
@@ -761,6 +832,9 @@ Do not add any explanation outside the JSON.
 
 def process_message(user_message):
 
+    if not user_message:
+        return
+
     st.session_state.messages.append(
         {
             "role": "user",
@@ -863,15 +937,90 @@ if st.session_state.pending_prompt:
 
 
 # ============================================================
-# CHAT INPUT
+# INPUT AREA
 # ============================================================
 
-user_message = st.chat_input(
-    "Tell me what you need help with..."
+st.divider()
+
+input_col, voice_col = st.columns(
+    [8, 1],
+    vertical_alignment="bottom"
 )
 
-if user_message:
+
+# ============================================================
+# TEXT INPUT
+# ============================================================
+
+with input_col:
+
+    typed_message = st.text_input(
+        "Message",
+        placeholder="Tell me what you need help with...",
+        label_visibility="collapsed"
+    )
+
+
+# ============================================================
+# VOICE INPUT
+# ============================================================
+
+with voice_col:
+
+    audio = mic_recorder(
+        start_prompt="🎙️",
+        stop_prompt="⏹️",
+        just_once=True,
+        use_container_width=True,
+        format="wav",
+        key="voice_recorder"
+    )
+
+
+# ============================================================
+# HANDLE VOICE INPUT
+# ============================================================
+
+if audio is not None:
+
+    audio_bytes = audio.get("bytes")
+
+    if audio_bytes:
+
+        with st.spinner(
+            "🎙️ Listening and converting your voice..."
+        ):
+
+            voice_text = transcribe_audio(
+                audio_bytes
+            )
+
+        if voice_text:
+
+            st.session_state.voice_text = voice_text
+
+            st.success(
+                f"🎙️ I heard: **{voice_text}**"
+            )
+
+            st.session_state.pending_prompt = voice_text
+
+            st.rerun()
+
+        else:
+
+            st.error(
+                "I couldn't understand the recording. "
+                "Please try speaking again clearly."
+            )
+
+
+# ============================================================
+# HANDLE TYPED MESSAGE
+# ============================================================
+
+if typed_message:
 
     process_message(
-        user_message
+        typed_message
     )
