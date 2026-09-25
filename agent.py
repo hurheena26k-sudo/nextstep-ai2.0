@@ -1,14 +1,18 @@
 """
-Agent Engine for NextStep AI.
-Implements 5 agent workflow stages:
-1. Intent Analysis
-2. Service Identification
-3. Information Retrieval
-4. Step Planning
-5. Verification & Response Generation
+Agent Engine for NextStep AI (v2.1).
+Implements full 9-stage agentic workflow:
+1. UNDERSTAND
+2. IDENTIFY SERVICE
+3. CLARIFY MISSING INFORMATION
+4. DETERMINE REQUIREMENTS
+5. BUILD DOCUMENT CHECKLIST
+6. CREATE PERSONALIZED PLAN
+7. FIND/VERIFY OFFICIAL SOURCE
+8. GUIDE USER THROUGH NEXT ACTION
+9. TRACK PROGRESS
 
 Handles real Gemini API calling via `google-genai` and robust fallback using `services_data`.
-Supports multi-turn conversation context and language preferences.
+Supports multi-turn conversation context, government notice analysis, "Do it for me" draft workspace, and language preferences.
 """
 
 import json
@@ -18,52 +22,72 @@ from typing import Dict, Any, List, Optional
 from google import genai
 from google.genai import types
 
-from services_data import SERVICES_DATABASE, search_service_by_query, get_verified_service_by_key
+from services_data import SERVICES_DATABASE, search_service_by_query, get_verified_service_by_key, DO_IT_FOR_ME_RULES
 
 
-# Stage definitions for UI animation
+# 9-stage workflow definitions for UI animation and task tracking
 AGENT_STAGES = [
-    {"id": 1, "title": "Intent Analysis", "icon": "🧠", "description": "Parsing natural language request & citizen context"},
-    {"id": 2, "title": "Service Identification", "icon": "🔍", "description": "Determining exact service & jurisdiction (Central vs Telangana)"},
-    {"id": 3, "title": "Information Retrieval", "icon": "📚", "description": "Fetching verified document requirements & eligibility rules"},
-    {"id": 4, "title": "Step Planning", "icon": "🗺️", "description": "Building personalized step-by-step guidance workflow"},
-    {"id": 5, "title": "Verification", "icon": "🛡️", "description": "Validating official government sources & generating disclaimers"}
+    {"id": 1, "title": "Understand Situation", "icon": "🧠", "description": "Analyzing natural language narrative & citizen context"},
+    {"id": 2, "title": "Identify Service", "icon": "🔍", "description": "Mapping query to Central or Telangana government service"},
+    {"id": 3, "title": "Clarify Information", "icon": "❓", "description": "Checking if crucial details are missing or if ready to proceed"},
+    {"id": 4, "title": "Determine Requirements", "icon": "⚖️", "description": "Extracting eligibility rules, fees, and government mandates"},
+    {"id": 5, "title": "Build Document Checklist", "icon": "📋", "description": "Generating document cards with conditional badges & verification checks"},
+    {"id": 6, "title": "Create Personalized Plan", "icon": "🗺️", "description": "Structuring step-by-step guidance tailored to citizen case"},
+    {"id": 7, "title": "Verify Official Source", "icon": "🛡️", "description": "Validating official .gov.in portal links and disclaimer warnings"},
+    {"id": 8, "title": "Guide Next Action", "icon": "🚀", "description": "Pinpointing immediate high-priority next step for citizen"},
+    {"id": 9, "title": "Track Progress", "icon": "📊", "description": "Updating persistent session progress tracker state"}
 ]
 
 
 SYSTEM_PROMPT = """
-You are NextStep AI, an expert AI assistant navigating Indian public and government services with specialized expertise in Central Government services and Telangana State services (MeeSeva, GHMC, CDMA).
+You are NextStep AI (v2.1), an expert AI government service assistant for India, with specialized support for Telangana State (MeeSeva, GHMC, CDMA, RTO, Revenue).
 
-Your task is to analyze a citizen's request (and conversation history) and respond strictly in valid JSON format adhering to the following structure:
+Your core promise: "Tell us what happened. We'll help you figure out what to do next."
+
+You operate as a task-oriented agent. Analyze the user's situation (and conversation history) and produce output strictly as valid JSON following this exact schema:
 
 {
-  "service_id": "passport|aadhaar|pan|birth_certificate|property_tax|other_service_id",
-  "service_name": "Official Service Name",
+  "service_id": "passport|aadhaar|pan|voter_id|driving_licence|birth_certificate|death_certificate|caste_income_certificate|property_tax|welfare_schemes|business_msme|itr_filing|other_service",
+  "service_name": "Official Government Service Name",
   "jurisdiction": "Central|Telangana|Other State",
   "jurisdiction_label": "e.g., Central Government (UIDAI) or Telangana State Government (MeeSeva / GHMC)",
-  "summary": "Clear 2-sentence summary of what this service handles or answer to citizen's follow-up question.",
+  "situation_understood": "Clear 2-sentence summary of what the system understood about the citizen's situation.",
+  "clarification_needed": null_or_string_if_important_detail_missing,
   "documents": [
-    {"name": "Document Name", "required": true, "notes": "Short explanation"},
-    {"name": "Document Name 2", "required": false, "notes": "Optional/conditional explanation"}
+    {
+      "name": "Document Name",
+      "status": "Typically required|May be required depending on your case|Supporting document",
+      "required": true_or_false,
+      "why_needed": "Explanation of why this document is required",
+      "check_note": "What the user should verify on this document"
+    }
   ],
   "steps": [
-    {"step": 1, "title": "Step title", "description": "Clear step action"},
-    {"step": 2, "title": "Step title", "description": "Clear step action"}
+    {"step": 1, "title": "Step title", "description": "Clear step action"}
   ],
   "official_url": "https://official-government-url.gov.in/",
   "portal_name": "Official Portal Name",
   "is_verified_url": true,
   "verification_notes": "Explicit details on verified rules, fees, timelines, or warning about items needing confirmation.",
-  "next_action": "Clear single immediate next action for the citizen."
+  "next_action": "Clear single immediate next action for the citizen.",
+  "notice_analysis": null_or_object_if_user_pasted_notice,
+  "do_it_for_me_workspace": null_or_object_if_user_asked_can_you_do_this_for_me,
+  "progress_tracker": {
+    "situation_understood": true,
+    "service_identified": true,
+    "documents_identified": true,
+    "next_action_ready": true,
+    "final_submission_completed": false
+  }
 }
 
-CRITICAL GUIDELINES:
-1. Always accurately identify if the service is a Central Government service (e.g. Passport, Aadhaar, PAN) or a Telangana State service (e.g. Birth Certificate via MeeSeva/GHMC, Property Tax via GHMC/CDMA).
-2. Never invent fake government portal URLs or URLs ending in .com unless it's an official partner like IRCTC/Protean. For Passport use https://www.passportindia.gov.in/, for Aadhaar use https://uidai.gov.in/, for PAN use https://www.incometax.gov.in/, for Telangana Birth/MeeSeva use https://ts.meeseva.telangana.gov.in/, for Property Tax use https://www.ghmc.gov.in/.
-3. Clearly distinguish mandatory documents (`required: true`) from conditional documents (`required: false`).
-4. Support follow-up responses seamlessly using conversation history.
-5. Respect the requested language preference (English, Telugu, or Hindi) for output text fields (`summary`, `steps`, `next_action`, `notes`).
-6. Output ONLY raw valid JSON, without markdown backticks or commentary surrounding the JSON.
+CRITICAL RULES:
+1. Natural Situation Mapping: Understand citizen narratives like "I moved to Hyderabad" or "I received a tax letter" and map them to appropriate services.
+2. Missing Details: Do not ask unnecessary questions. If enough info exists, proceed directly. If something crucial is missing, set `clarification_needed` with a concise question.
+3. Government Notices: If the user pasted a notice/letter, populate `notice_analysis` with `{"simple_explanation": "...", "requested_action": "...", "mentioned_documents": [...], "important_dates": "..."}`. Clearly state explanations are informational.
+4. "Do It For Me" Requests: If user asks "Can you do this for me?", populate `do_it_for_me_workspace` with `{"prepared_draft_fields": {...}, "checklist": [...], "portal_notice": "Explain that final submission must occur on official government portal due to OTP/auth controls"}`. NEVER claim to submit on external portals or bypass OTP/CAPTCHA.
+5. Never invent fake URLs or portals. Prefer official .gov.in domains.
+6. Output ONLY raw valid JSON, no markdown backticks surrounding the JSON response.
 """
 
 
@@ -89,43 +113,70 @@ def get_api_key(st_secrets=None) -> Optional[str]:
 
 def generate_fallback_response(query: str, history: Optional[List[Dict[str, str]]] = None, language: str = "English") -> Dict[str, Any]:
     """Generates structured response from local curated knowledge base if API key is not available or API fails."""
-    # Check if query matches keywords directly or in recent history
     combined_query = query
     if history:
         for msg in reversed(history[-4:]):
             if msg.get("role") == "user":
                 combined_query += " " + msg.get("content", "")
 
+    query_lower = query.lower().strip()
+
+    # Special handling for "Can you do this for me?"
+    is_do_it_for_me = "do this for me" in query_lower or "do it for me" in query_lower or "apply for me" in query_lower
+
+    # Special handling for notice/letter pasting
+    is_notice = any(w in query_lower for w in ["notice", "letter", "demand", "penalty", "intimation", "received a document", "received a"])
+
     matched = search_service_by_query(combined_query) or search_service_by_query(query)
 
     if matched:
-        return {
-            "success": True,
-            "source": "knowledge_base",
-            "data": {
-                "service_id": matched["id"],
-                "service_name": matched["title"],
-                "jurisdiction": matched["jurisdiction"],
-                "jurisdiction_label": matched["jurisdiction_label"],
-                "summary": matched["description"],
-                "documents": matched["documents"],
-                "steps": matched["steps"],
-                "official_url": matched["official_url"],
-                "portal_name": matched["portal_name"],
-                "is_verified_url": matched["is_verified"],
-                "verification_notes": matched["verification_notes"],
-                "next_action": f"Gather the mandatory documents listed above and visit {matched['portal_name']}."
+        res_data = {
+            "service_id": matched["id"],
+            "service_name": matched["title"],
+            "jurisdiction": matched["jurisdiction"],
+            "jurisdiction_label": matched["jurisdiction_label"],
+            "situation_understood": f"Understood citizen inquiry regarding {matched['title']} in {matched['jurisdiction_label']}.",
+            "clarification_needed": None,
+            "documents": matched["documents"],
+            "steps": matched["steps"],
+            "official_url": matched["official_url"],
+            "portal_name": matched["portal_name"],
+            "is_verified_url": matched["is_verified"],
+            "verification_notes": matched["verification_notes"],
+            "next_action": f"Gather the required documents listed above and open {matched['portal_name']}.",
+            "notice_analysis": {
+                "simple_explanation": f"This notice relates to your {matched['title']} account or official record.",
+                "requested_action": f"Verify records and respond on {matched['portal_name']}.",
+                "mentioned_documents": [d["name"] for d in matched["documents"][:2]],
+                "important_dates": "Check top-right corner of notice for 30-day response deadline."
+            } if is_notice else None,
+            "do_it_for_me_workspace": {
+                "prepared_draft_fields": {
+                    "Applicant Name": "Full Name as on Aadhaar",
+                    "Service Type": matched["title"],
+                    "Jurisdiction": matched["jurisdiction_label"],
+                    "Target Portal": matched["official_url"]
+                },
+                "checklist": [d["name"] for d in matched["documents"] if d.get("required")],
+                "portal_notice": f"NextStep AI has organized your draft details. The final application must be completed on {matched['portal_name']} due to official OTP and authentication requirements."
+            } if is_do_it_for_me else None,
+            "progress_tracker": {
+                "situation_understood": True,
+                "service_identified": True,
+                "documents_identified": True,
+                "next_action_ready": True,
+                "final_submission_completed": False
             }
         }
+        return {"success": True, "source": "knowledge_base", "data": res_data}
 
-    # Handle common quick-reply queries when in a conversation
-    query_lower = query.lower().strip()
+    # Handle common quick action prompts
     if query_lower in ["show documents", "documents"]:
         return generate_fallback_response("passport", history, language)
     if query_lower in ["what should i do next?", "what next?", "next steps"]:
-        return generate_fallback_response("birth certificate", history, language)
+        return generate_fallback_response("aadhaar address update", history, language)
 
-    # Generic fallback if query is outside the 5 main services
+    # Generic fallback
     is_telangana = any(kw in combined_query.lower() for kw in ["telangana", "hyderabad", "ghmc", "meeseva", "ts"])
     jurisdiction = "Telangana" if is_telangana else "Central"
     jurisdiction_label = "Telangana State Government (MeeSeva Portal)" if is_telangana else "Central Government (National Portal of India)"
@@ -137,26 +188,46 @@ def generate_fallback_response(query: str, history: Optional[List[Dict[str, str]
         "source": "general_guidance",
         "data": {
             "service_id": "general_public_service",
-            "service_name": "General Public Service Inquiry",
+            "service_name": "General Public Service Guidance",
             "jurisdiction": jurisdiction,
             "jurisdiction_label": jurisdiction_label,
-            "summary": f"Your query regarding '{query[:50]}' pertains to {jurisdiction} public administration.",
+            "situation_understood": f"Understood citizen inquiry: '{query[:80]}...'",
+            "clarification_needed": "Could you specify if you hold an existing document or reference number?",
             "documents": [
-                {"name": "Government Issued Identity Proof (Aadhaar / Voter ID / PAN)", "required": True, "notes": "Mandatory identity proof"},
-                {"name": "Proof of Address (Utility Bill / Ration Card / Aadhaar)", "required": True, "notes": "Mandatory residential address proof"},
-                {"name": "Passport Size Photographs", "required": False, "notes": "Required if physical application form is submitted"}
+                {"name": "Government Issued Photo ID (Aadhaar / Voter ID / PAN)", "status": "Typically required", "required": True, "why_needed": "Identity confirmation", "check_note": "Unexpired photo ID"},
+                {"name": "Address Proof (Electricity Bill / Aadhaar / Rent Agreement)", "status": "Typically required", "required": True, "why_needed": "Residential jurisdiction validation", "check_note": "Recent bill under 3 months"}
             ],
             "steps": [
-                {"step": 1, "title": "Identify Official Department", "description": f"Verify whether this service is handled online via {portal_name}."},
-                {"step": 2, "title": "Prepare Documents", "description": "Ensure your demographic details (Name, Date of Birth, Address) match across all ID proofs."},
-                {"step": 3, "title": "Submit Application", "description": f"Access {portal_name} or nearest government service centre to register your request."},
-                {"step": 4, "title": "Track Application Status", "description": "Note down the Application Reference / Acknowledgement Number to track progress online."}
+                {"step": 1, "title": "Identify Official Department", "description": f"Confirm whether this service is accessible on {portal_name}."},
+                {"step": 2, "title": "Prepare Documents", "description": "Ensure personal details match across all identity proofs."},
+                {"step": 3, "title": "Submit Application", "description": f"Access {portal_name} or visit nearest citizen kiosk."}
             ],
             "official_url": portal_url,
             "portal_name": portal_name,
             "is_verified_url": True,
-            "verification_notes": "Official portal URL is verified. Exact fees and application procedures should be confirmed directly on the official portal.",
-            "next_action": f"Visit {portal_name} ({portal_url}) to search for specific service forms."
+            "verification_notes": "Official portal URL is verified. Confirm exact service fee on official portal.",
+            "next_action": f"Visit {portal_name} ({portal_url}) to search form options.",
+            "notice_analysis": {
+                "simple_explanation": "This notice requests verification or response for official government records.",
+                "requested_action": "Review the reference number and submit response on official portal.",
+                "mentioned_documents": ["Identity Proof", "Address Proof"],
+                "important_dates": "Confirm deadline date on official notice header."
+            } if is_notice else None,
+            "do_it_for_me_workspace": {
+                "prepared_draft_fields": {
+                    "Applicant Name": "Full Name as on Aadhaar",
+                    "Inquiry Summary": query[:50]
+                },
+                "checklist": ["Photo ID", "Address Proof"],
+                "portal_notice": f"NextStep AI has organized your draft information. Official submission must occur directly on {portal_name} due to OTP authentication."
+            } if is_do_it_for_me else None,
+            "progress_tracker": {
+                "situation_understood": True,
+                "service_identified": True,
+                "documents_identified": True,
+                "next_action_ready": True,
+                "final_submission_completed": False
+            }
         }
     }
 
@@ -168,30 +239,21 @@ def execute_agent_workflow(
     language: str = "English",
     progress_callback=None
 ) -> Dict[str, Any]:
-    """
-    Executes the 5-stage agent workflow:
-    1. Intent Analysis
-    2. Service Identification
-    3. Information Retrieval
-    4. Step Planning
-    5. Verification & Response Generation
-    """
+    """Executes the full 9-stage agent workflow."""
 
-    # Simulate stage progress callback if provided
+    # Simulate stage progress execution
     for stage in AGENT_STAGES:
         if progress_callback:
             try:
                 progress_callback(stage["id"], stage["title"], stage["description"])
             except Exception:
                 pass
-            time.sleep(0.1)
+            time.sleep(0.08)
 
-    # If no API key, use verified knowledge engine fallback
     if not api_key:
         return generate_fallback_response(user_query, history, language)
 
     try:
-        # Initialize Google GenAI client with official SDK
         client = genai.Client(api_key=api_key)
 
         history_str = ""
@@ -202,9 +264,8 @@ def execute_agent_workflow(
                 content = msg.get("content", "")
                 history_str += f"{role.upper()}: {content}\n"
 
-        prompt = f"{history_str}\nTarget Language: {language}\nLatest Citizen Query: {user_query}\n\nProvide the response strictly as valid JSON following the schema specified in the system instructions."
+        prompt = f"{history_str}\nTarget Language: {language}\nLatest Citizen Query: {user_query}\n\nRespond strictly with valid JSON following system instructions."
 
-        # Call Gemini 2.5 Flash model
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt,
@@ -216,8 +277,6 @@ def execute_agent_workflow(
         )
 
         raw_text = response.text.strip()
-
-        # Clean JSON markdown delimiters if present
         if raw_text.startswith("```json"):
             raw_text = raw_text[7:]
         if raw_text.startswith("```"):
@@ -227,7 +286,7 @@ def execute_agent_workflow(
 
         data = json.loads(raw_text.strip())
 
-        # Cross-verify and patch official verified URLs if matched with curated database
+        # Cross-verify verified URLs with knowledge database if matched
         combined = user_query
         if history:
             for m in reversed(history[-4:]):
@@ -248,7 +307,7 @@ def execute_agent_workflow(
         }
 
     except Exception as e:
-        print(f"Gemini API Exception, falling back to Knowledge Engine: {e}")
+        print(f"Gemini API Exception, using knowledge fallback: {e}")
         fallback = generate_fallback_response(user_query, history, language)
         fallback["api_error"] = str(e)
         return fallback

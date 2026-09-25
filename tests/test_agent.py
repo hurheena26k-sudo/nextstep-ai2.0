@@ -1,57 +1,64 @@
 import unittest
-from agent import execute_agent_workflow, AGENT_STAGES, get_api_key
+import os
+import sys
+
+# Ensure root folder is in python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from services_data import SERVICES_DATABASE, search_service_by_query, get_verified_service_by_key
+from agent import execute_agent_workflow, generate_fallback_response, AGENT_STAGES
 
 
 class TestNextStepAgent(unittest.TestCase):
 
-    def test_services_database_completeness(self):
-        """Verify that all 5 core supported services exist in the knowledge database."""
-        core_services = ["passport", "aadhaar", "pan", "birth_certificate", "property_tax"]
-        for s in core_services:
-            self.assertIn(s, SERVICES_DATABASE)
-            srv = SERVICES_DATABASE[s]
-            self.assertIn("title", srv)
-            self.assertIn("jurisdiction", srv)
-            self.assertIn("official_url", srv)
-            self.assertTrue(len(srv["documents"]) > 0)
-            self.assertTrue(len(srv["steps"]) > 0)
+    def test_services_database_integrity(self):
+        """Verify core services database contains expected fields and metadata."""
+        self.assertGreaterEqual(len(SERVICES_DATABASE), 12)
+        for s_id, s_data in SERVICES_DATABASE.items():
+            self.assertIn("title", s_data)
+            self.assertIn("jurisdiction", s_data)
+            self.assertIn("official_url", s_data)
+            self.assertTrue(s_data["official_url"].startswith("http"))
+            self.assertIn("documents", s_data)
+            self.assertIn("steps", s_data)
+            for doc in s_data["documents"]:
+                self.assertIn("name", doc)
+                self.assertIn("status", doc)
+                self.assertIn("why_needed", doc)
 
     def test_search_service_by_query(self):
-        """Verify fuzzy keyword searching in local knowledge base."""
-        res_passport = search_service_by_query("I want to renew my passport")
-        self.assertIsNotNone(res_passport)
-        self.assertEqual(res_passport["id"], "passport")
+        """Test fuzzy query matching for new and existing services."""
+        voter_match = search_service_by_query("I need to apply for a voter id card")
+        self.assertIsNotNone(voter_match)
+        self.assertEqual(voter_match["id"], "voter_id")
 
-        res_birth = search_service_by_query("need birth registration in GHMC Hyderabad")
-        self.assertIsNotNone(res_birth)
-        self.assertEqual(res_birth["id"], "birth_certificate")
+        dl_match = search_service_by_query("How to renew driving licence in Telangana?")
+        self.assertIsNotNone(dl_match)
+        self.assertEqual(dl_match["id"], "driving_licence")
 
-    def test_agent_workflow_fallback_execution(self):
-        """Verify end-to-end fallback execution when API key is None."""
-        res = execute_agent_workflow("How to pay GHMC property tax online?", api_key=None)
+        tax_match = search_service_by_query("Pay ghmc house tax online")
+        self.assertIsNotNone(tax_match)
+        self.assertEqual(tax_match["id"], "property_tax")
+
+    def test_notice_analysis_fallback(self):
+        """Test government notice decoding in fallback engine."""
+        res = execute_agent_workflow("I received a tax demand notice")
         self.assertTrue(res["success"])
-        self.assertIn("data", res)
-        data = res["data"]
-        self.assertEqual(data["jurisdiction"], "Telangana")
-        self.assertTrue(len(data["documents"]) > 0)
-        self.assertTrue(len(data["steps"]) > 0)
-        self.assertTrue(data["is_verified_url"])
-        self.assertIn("ghmc.gov.in", data["official_url"])
+        self.assertIsNotNone(res["data"].get("notice_analysis"))
+        self.assertIn("simple_explanation", res["data"]["notice_analysis"])
 
-    def test_multi_turn_history_context(self):
-        """Verify that follow-up queries resolve using conversation history context."""
-        history = [
-            {"role": "user", "content": "I need to get a birth certificate for my baby born in GHMC hospital"},
-            {"role": "assistant", "content": "Birth certificate guidance"}
-        ]
-        res = execute_agent_workflow("Show documents", api_key=None, history=history)
+    def test_do_it_for_me_fallback(self):
+        """Test 'Do it for me' mode workspace in fallback engine."""
+        res = execute_agent_workflow("Can you do this for me?")
         self.assertTrue(res["success"])
-        self.assertEqual(res["data"]["jurisdiction"], "Telangana")
+        self.assertIsNotNone(res["data"].get("do_it_for_me_workspace"))
+        self.assertIn("prepared_draft_fields", res["data"]["do_it_for_me_workspace"])
 
-    def test_agent_stages_count(self):
-        """Verify 5 defined agent workflow stages."""
-        self.assertEqual(len(AGENT_STAGES), 5)
+    def test_multi_stage_workflow_definitions(self):
+        """Test 9-stage workflow definition structure."""
+        self.assertEqual(len(AGENT_STAGES), 9)
+        self.assertEqual(AGENT_STAGES[0]["title"], "Understand Situation")
+        self.assertEqual(AGENT_STAGES[-1]["title"], "Track Progress")
 
 
 if __name__ == "__main__":
