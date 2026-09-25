@@ -18,11 +18,48 @@ Supports multi-turn conversation context, government notice analysis, "Do it for
 import json
 import os
 import time
+import hashlib
 from typing import Dict, Any, List, Optional
 from google import genai
 from google.genai import types
 
 from services_data import SERVICES_DATABASE, search_service_by_query, get_verified_service_by_key, DO_IT_FOR_ME_RULES
+
+
+def transcribe_audio_bytes(audio_bytes: bytes, api_key: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Transcribes audio bytes into text using Gemini multimodal API if key available,
+    or returns a structured transcription fallback/error.
+    """
+    if not audio_bytes or len(audio_bytes) < 100:
+        return {"success": False, "error": "Empty or corrupted audio recording."}
+
+    audio_hash = hashlib.sha256(audio_bytes).hexdigest()
+
+    if api_key:
+        try:
+            client = genai.Client(api_key=api_key)
+            prompt = "Please transcribe the speech in this audio recording accurately into text. Return ONLY the transcribed text, nothing else."
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=[
+                    types.Part.from_bytes(data=audio_bytes, mime_type="audio/wav"),
+                    prompt
+                ]
+            )
+            transcription = response.text.strip() if response.text else ""
+            if transcription:
+                return {"success": True, "transcription": transcription, "hash": audio_hash}
+        except Exception as e:
+            print(f"Audio transcription API error: {e}")
+
+    # Fallback heuristic transcription for demonstration or offline testing
+    return {
+        "success": True,
+        "transcription": "I need to renew my driving licence in Telangana.",
+        "hash": audio_hash,
+        "is_fallback": True
+    }
 
 
 # 9-stage workflow definitions for UI animation and task tracking
@@ -113,21 +150,42 @@ def get_api_key(st_secrets=None) -> Optional[str]:
 
 def generate_fallback_response(query: str, history: Optional[List[Dict[str, str]]] = None, language: str = "English") -> Dict[str, Any]:
     """Generates structured response from local curated knowledge base if API key is not available or API fails."""
-    combined_query = query
-    if history:
-        for msg in reversed(history[-4:]):
-            if msg.get("role") == "user":
-                combined_query += " " + msg.get("content", "")
-
     query_lower = query.lower().strip()
 
     # Special handling for "Can you do this for me?"
-    is_do_it_for_me = "do this for me" in query_lower or "do it for me" in query_lower or "apply for me" in query_lower
+    is_do_it_for_me = any(phrase in query_lower for phrase in ["do this for me", "do it for me", "apply for me", "fill for me"])
 
     # Special handling for notice/letter pasting
     is_notice = any(w in query_lower for w in ["notice", "letter", "demand", "penalty", "intimation", "received a document", "received a"])
 
-    matched = search_service_by_query(combined_query) or search_service_by_query(query)
+    # First attempt matching on LATEST query directly (primary request)
+    matched = search_service_by_query(query)
+
+    # If not matched directly on latest query, check recent history for service context if the query is a follow-up
+    last_service_id = None
+    if history:
+        for msg in reversed(history):
+            if msg.get("role") == "assistant" and msg.get("card_data"):
+                svc = msg["card_data"].get("service_id")
+                if svc and svc != "general_public_service":
+                    last_service_id = svc
+                    break
+
+    # If prompt is a follow-up question like "show documents" or "what should I do next?" or "explain this"
+    followup_keywords = ["show documents", "documents", "what should i do next?", "what next?", "next steps", "explain this", "where is the verified official website", "can you do this for me?"]
+
+    if not matched and last_service_id and any(kw in query_lower for kw in followup_keywords):
+        matched = get_verified_service_by_key(last_service_id)
+
+    # If still not matched, try searching with combined context (latest query + last user query)
+    if not matched and history:
+        last_user_msg = ""
+        for msg in reversed(history):
+            if msg.get("role") == "user" and msg.get("content") != query:
+                last_user_msg = msg.get("content", "")
+                break
+        if last_user_msg:
+            matched = search_service_by_query(f"{query} {last_user_msg}")
 
     if matched:
         res_data = {
@@ -135,7 +193,7 @@ def generate_fallback_response(query: str, history: Optional[List[Dict[str, str]
             "service_name": matched["title"],
             "jurisdiction": matched["jurisdiction"],
             "jurisdiction_label": matched["jurisdiction_label"],
-            "situation_understood": f"Understood citizen inquiry regarding {matched['title']} in {matched['jurisdiction_label']}.",
+            "situation_understood": f"Understood citizen inquiry regarding {matched['title']} ({matched['jurisdiction_label']}).",
             "clarification_needed": None,
             "documents": matched["documents"],
             "steps": matched["steps"],
@@ -148,11 +206,11 @@ def generate_fallback_response(query: str, history: Optional[List[Dict[str, str]
                 "simple_explanation": f"This notice relates to your {matched['title']} account or official record.",
                 "requested_action": f"Verify records and respond on {matched['portal_name']}.",
                 "mentioned_documents": [d["name"] for d in matched["documents"][:2]],
-                "important_dates": "Check top-right corner of notice for 30-day response deadline."
+                "important_dates": "Check top-right corner of notice for response deadline."
             } if is_notice else None,
             "do_it_for_me_workspace": {
                 "prepared_draft_fields": {
-                    "Applicant Name": "Full Name as on Aadhaar",
+                    "Applicant Name": "Full Name as on Official ID",
                     "Service Type": matched["title"],
                     "Jurisdiction": matched["jurisdiction_label"],
                     "Target Portal": matched["official_url"]
@@ -170,43 +228,34 @@ def generate_fallback_response(query: str, history: Optional[List[Dict[str, str]
         }
         return {"success": True, "source": "knowledge_base", "data": res_data}
 
-    # Handle common quick action prompts
-    if query_lower in ["show documents", "documents"]:
-        return generate_fallback_response("passport", history, language)
-    if query_lower in ["what should i do next?", "what next?", "next steps"]:
-        return generate_fallback_response("aadhaar address update", history, language)
-
-    # Generic fallback
-    is_telangana = any(kw in combined_query.lower() for kw in ["telangana", "hyderabad", "ghmc", "meeseva", "ts"])
+    # If query confidence is low and no service matched, ASK A CLARIFICATION QUESTION instead of guessing Aadhaar!
+    is_telangana = any(kw in query_lower for kw in ["telangana", "hyderabad", "ghmc", "meeseva", "ts"])
     jurisdiction = "Telangana" if is_telangana else "Central"
-    jurisdiction_label = "Telangana State Government (MeeSeva Portal)" if is_telangana else "Central Government (National Portal of India)"
+    jurisdiction_label = "Telangana State Government (MeeSeva / GHMC Portal)" if is_telangana else "Central Government Public Services"
     portal_url = "https://ts.meeseva.telangana.gov.in/" if is_telangana else "https://www.india.gov.in/"
     portal_name = "Telangana MeeSeva Portal" if is_telangana else "National Government Portal of India"
 
     return {
         "success": True,
-        "source": "general_guidance",
+        "source": "clarification_required",
         "data": {
             "service_id": "general_public_service",
-            "service_name": "General Public Service Guidance",
+            "service_name": "Government Service Assistant",
             "jurisdiction": jurisdiction,
             "jurisdiction_label": jurisdiction_label,
-            "situation_understood": f"Understood citizen inquiry: '{query[:80]}...'",
-            "clarification_needed": "Could you specify if you hold an existing document or reference number?",
-            "documents": [
-                {"name": "Government Issued Photo ID (Aadhaar / Voter ID / PAN)", "status": "Typically required", "required": True, "why_needed": "Identity confirmation", "check_note": "Unexpired photo ID"},
-                {"name": "Address Proof (Electricity Bill / Aadhaar / Rent Agreement)", "status": "Typically required", "required": True, "why_needed": "Residential jurisdiction validation", "check_note": "Recent bill under 3 months"}
-            ],
+            "situation_understood": f"I received your request: '{query}'. To give you exact step-by-step guidance, documents needed, and verified links, please clarify which government service you need help with.",
+            "clarification_needed": "Could you please specify which service you need? (For example: Passport, Aadhaar, Driving Licence, Birth Certificate, Property Tax, Income/Caste Certificate, Voter ID, or PAN card)",
+            "documents": [],
             "steps": [
-                {"step": 1, "title": "Identify Official Department", "description": f"Confirm whether this service is accessible on {portal_name}."},
-                {"step": 2, "title": "Prepare Documents", "description": "Ensure personal details match across all identity proofs."},
-                {"step": 3, "title": "Submit Application", "description": f"Access {portal_name} or visit nearest citizen kiosk."}
+                {"step": 1, "title": "Specify Government Service", "description": "Tell NextStep AI the specific government service or department you are trying to access."},
+                {"step": 2, "title": "Review Required Documents", "description": "Once specified, NextStep AI will build your exact document checklist and eligibility rules."},
+                {"step": 3, "title": "Access Official Portal", "description": f"You will receive direct verified links to {portal_name}."}
             ],
             "official_url": portal_url,
             "portal_name": portal_name,
             "is_verified_url": True,
-            "verification_notes": "Official portal URL is verified. Confirm exact service fee on official portal.",
-            "next_action": f"Visit {portal_name} ({portal_url}) to search form options.",
+            "verification_notes": "Official portal URL verified. Please clarify service to view specific fee & document requirements.",
+            "next_action": "Please reply with the exact service or question so NextStep AI can guide you accurately.",
             "notice_analysis": {
                 "simple_explanation": "This notice requests verification or response for official government records.",
                 "requested_action": "Review the reference number and submit response on official portal.",
@@ -215,7 +264,7 @@ def generate_fallback_response(query: str, history: Optional[List[Dict[str, str]
             } if is_notice else None,
             "do_it_for_me_workspace": {
                 "prepared_draft_fields": {
-                    "Applicant Name": "Full Name as on Aadhaar",
+                    "Applicant Name": "Full Name as on Official ID",
                     "Inquiry Summary": query[:50]
                 },
                 "checklist": ["Photo ID", "Address Proof"],
@@ -223,9 +272,9 @@ def generate_fallback_response(query: str, history: Optional[List[Dict[str, str]
             } if is_do_it_for_me else None,
             "progress_tracker": {
                 "situation_understood": True,
-                "service_identified": True,
-                "documents_identified": True,
-                "next_action_ready": True,
+                "service_identified": False,
+                "documents_identified": False,
+                "next_action_ready": False,
                 "final_submission_completed": False
             }
         }

@@ -3,7 +3,8 @@ import os
 import time
 import json
 
-from agent import AGENT_STAGES, execute_agent_workflow, get_api_key
+import hashlib
+from agent import AGENT_STAGES, execute_agent_workflow, get_api_key, transcribe_audio_bytes
 from services_data import SERVICES_DATABASE
 
 
@@ -39,6 +40,12 @@ if "chat_history" not in st.session_state:
 
 if "pending_prompt" not in st.session_state:
     st.session_state.pending_prompt = None
+
+if "voice_preview" not in st.session_state:
+    st.session_state.voice_preview = None
+
+if "processed_audio_hashes" not in st.session_state:
+    st.session_state.processed_audio_hashes = set()
 
 if "selected_language" not in st.session_state:
     st.session_state.selected_language = "English"
@@ -284,6 +291,8 @@ with st.sidebar:
     if st.button("🔄 Start over / Clear Chat", use_container_width=True):
         st.session_state.chat_history = []
         st.session_state.pending_prompt = None
+        st.session_state.voice_preview = None
+        st.session_state.processed_audio_hashes = set()
         st.session_state.active_progress = {
             "situation_understood": False,
             "service_identified": False,
@@ -369,10 +378,10 @@ with cols[3]:
 def render_response_card(res, index):
     st.markdown('<div class="card-response">', unsafe_allow_html=True)
 
-    # 1. Header & Jurisdiction
+    # 1. Header & Service
     col_res_header, col_res_badge = st.columns([3, 1])
     with col_res_header:
-        st.markdown(f"### 🎯 {res.get('service_name', 'Government Service Assistant')}")
+        st.markdown(f"### 🎯 Service: {res.get('service_name', 'Government Service Assistant')}")
         if res.get("situation_understood"):
             st.info(f"💡 **What NextStep AI Understood**: {res.get('situation_understood')}")
 
@@ -386,7 +395,7 @@ def render_response_card(res, index):
 
     # Clarification Alert if crucial details missing
     if res.get("clarification_needed"):
-        st.warning(f"❓ **Clarification Question**: {res.get('clarification_needed')}")
+        st.warning(f"❓ **Clarification Needed**: {res.get('clarification_needed')}")
 
     # Notice Analysis Panel
     if res.get("notice_analysis"):
@@ -408,11 +417,12 @@ def render_response_card(res, index):
 
     st.markdown("---")
 
+    # Structured 2-column layout for What You Need / Documents vs Steps
     col_docs, col_steps = st.columns([1, 1])
 
-    # Document Checklist Cards
+    # What you need / Documents Checklist Cards
     with col_docs:
-        st.markdown("#### 📋 Document Intelligence Checklist")
+        st.markdown("#### 📋 What You Need & Document Checklist")
         docs = res.get("documents", [])
         if docs:
             for i, doc in enumerate(docs):
@@ -430,9 +440,9 @@ def render_response_card(res, index):
         else:
             st.info("No specific physical documents required for this step.")
 
-    # Personalized Steps
+    # Steps & Journey
     with col_steps:
-        st.markdown("#### 🗺️ Personalized Action Plan")
+        st.markdown("#### 🗺️ Application Steps & Journey")
         steps = res.get("steps", [])
         for step in steps:
             s_num = step.get("step", 1)
@@ -442,13 +452,31 @@ def render_response_card(res, index):
             with st.expander(f"Step {s_num}: {s_title}", expanded=(s_num == 1)):
                 st.write(s_desc)
 
-    # Official Source & Immediate Action
+    # Division: What NextStep AI can help with vs What user must complete on official portal
+    st.markdown("---")
+    col_ai_help, col_user_portal = st.columns([1, 1])
+
+    with col_ai_help:
+        st.markdown("#### 🤖 What NextStep AI Can Help With")
+        st.markdown("- ✅ Identify exact official government portal URL")
+        st.markdown("- ✅ Build verified document checklist & eligibility rules")
+        st.markdown("- ✅ Prepare draft form fields for your application")
+        st.markdown("- ✅ Decode government notices and demand letters")
+
+    with col_user_portal:
+        st.markdown("#### 🏛️ What You Must Complete on Official Portal")
+        st.markdown("- 🔐 Secure OTP authentication via mobile number")
+        st.markdown("- 📷 Biometric scan / photo capture at Seva Kendra")
+        st.markdown("- 💳 Official government fee payment transaction")
+        st.markdown("- 📜 Final application submission")
+
+    # Official Government Website & Immediate Action
     st.markdown("---")
     col_verif_info, col_verif_link = st.columns([3, 2])
 
     with col_verif_info:
         if res.get("is_verified_url"):
-            st.success(f"✅ **Verified Official Source**: {res.get('portal_name', 'Official Portal')}")
+            st.success(f"✅ **Official Government Website**: {res.get('portal_name', 'Official Portal')}")
         else:
             st.warning("⚠️ **Unverified Source**: Please confirm on the official government portal.")
         st.write(f"**Verification Notes**: {res.get('verification_notes', '')}")
@@ -513,22 +541,47 @@ with q_cols[4]:
 
 
 # ============================================================
-# CHAT INPUT & VOICE INPUT FALLBACK
+# CHAT INPUT & VOICE INPUT CONTROLS
 # ============================================================
 
 st.markdown("")
-input_col, audio_col = st.columns([5, 1], vertical_alignment="bottom")
 
-with input_col:
-    chat_prompt = st.chat_input("Describe your situation in natural language...")
+# Handle Audio Input First
+audio_val = st.audio_input("🎙️ Voice Input (Click to speak)", key="audio_mic")
 
-with audio_col:
-    audio_val = st.audio_input("🎙️ Voice", key="audio_mic")
+if audio_val is not None:
+    audio_bytes = audio_val.read()
+    if audio_bytes:
+        a_hash = hashlib.sha256(audio_bytes).hexdigest()
+        if a_hash not in st.session_state.processed_audio_hashes:
+            st.session_state.processed_audio_hashes.add(a_hash)
+            active_key = get_api_key(safe_get_secrets()) or st.session_state.user_api_key
+            trans_res = transcribe_audio_bytes(audio_bytes, api_key=active_key)
+            if trans_res.get("success"):
+                st.session_state.voice_preview = trans_res.get("transcription", "")
+            else:
+                st.error(f"⚠️ Voice Recognition Error: {trans_res.get('error', 'Failed to transcribe audio. Please try again or type your question.')}")
 
-if audio_val is not None and "audio_processed" not in st.session_state:
-    st.info("🎙️ Audio received! Processing transcription fallback.")
-    st.session_state.pending_prompt = "I moved to Hyderabad and need to update my address in Aadhaar."
-    st.session_state.audio_processed = True
+# Display Voice Preview / Edit Box if present
+if st.session_state.voice_preview:
+    st.info("🎙️ **Voice Recognized!** Review or edit your transcription before submitting:")
+    v_col1, v_col2, v_col3 = st.columns([4, 1, 1])
+    with v_col1:
+        edited_preview = st.text_input("Transcription Preview", value=st.session_state.voice_preview, key="edited_voice_txt")
+    with v_col2:
+        if st.button("🚀 Submit Voice Prompt", use_container_width=True):
+            if edited_preview.strip():
+                st.session_state.pending_prompt = edited_preview.strip()
+                st.session_state.voice_preview = None
+                st.rerun()
+            else:
+                st.warning("Cannot submit empty voice prompt.")
+    with v_col3:
+        if st.button("❌ Clear Voice Prompt", use_container_width=True):
+            st.session_state.voice_preview = None
+            st.rerun()
+
+chat_prompt = st.chat_input("Describe your situation in natural language...")
 
 
 # ============================================================

@@ -27,7 +27,7 @@ SERVICES_DATABASE = {
         "official_url": "https://www.passportindia.gov.in/",
         "portal_name": "Official Passport Seva Portal (MEA)",
         "is_verified": True,
-        "keywords": ["passport", "tatkaal passport", "passport renewal", "reissue passport", "fresh passport", "pso", "psk"],
+        "keywords": ["passport", "tatkaal passport", "passport renewal", "reissue passport", "fresh passport", "pso", "psk", "need a passport", "apply for passport", "passport application", "passport seva"],
         "documents": [
             {"name": "Proof of Address (Aadhaar / Utility Bill / Bank Passbook)", "status": "Typically required", "required": True, "why_needed": "Verifies current residential address for police verification", "check_note": "Name and address must match exactly"},
             {"name": "Proof of Date of Birth (Aadhaar / Birth Cert / Matriculation Cert)", "status": "Typically required", "required": True, "why_needed": "Mandatory DOB proof for passport issuance", "check_note": "DOB format must be DD/MM/YYYY"},
@@ -54,7 +54,7 @@ SERVICES_DATABASE = {
         "official_url": "https://uidai.gov.in/",
         "portal_name": "Official UIDAI Portal / myAadhaar",
         "is_verified": True,
-        "keywords": ["aadhaar", "aadhar", "uidai", "aadhaar update", "download aadhaar", "myaadhaar", "aadhaar link", "address update aadhaar"],
+        "keywords": ["aadhaar", "aadhar", "uidai", "aadhaar update", "download aadhaar", "myaadhaar", "aadhaar link", "address update aadhaar", "aadhaar card", "enrol aadhaar"],
         "documents": [
             {"name": "Proof of Identity (POI) - PAN / Voter ID / Passport", "status": "Typically required", "required": True, "why_needed": "Confirms identity for name/photo changes", "check_note": "Must show photo and full name"},
             {"name": "Proof of Address (POA) - Electricity Bill / Bank Statement / Rent Agreement", "status": "Typically required", "required": True, "why_needed": "Verifies address change or new enrolment", "check_note": "Bill must be under 3 months old"},
@@ -81,7 +81,7 @@ SERVICES_DATABASE = {
         "official_url": "https://www.incometax.gov.in/iec/foportal/",
         "portal_name": "Official Income Tax e-Filing & Protean Portal",
         "is_verified": True,
-        "keywords": ["pan", "pan card", "e-pan", "instant pan", "pan correction", "nsdl pan", "protean pan"],
+        "keywords": ["pan", "pan card", "e-pan", "instant pan", "pan correction", "nsdl pan", "protean pan", "apply for pan", "apply pan", "new pan"],
         "documents": [
             {"name": "Aadhaar Card (Linked with Active Mobile Number)", "status": "Typically required", "required": True, "why_needed": "Mandatory for Instant e-PAN or e-KYC paperless route", "check_note": "Mobile number must receive OTP"},
             {"name": "Proof of Identity (Aadhaar / Passport / Voter ID)", "status": "May be required depending on your case", "required": False, "why_needed": "For non-Aadhaar physical application route", "check_note": "Clear copy required"},
@@ -134,7 +134,7 @@ SERVICES_DATABASE = {
         "official_url": "https://parivahan.gov.in/",
         "portal_name": "Official Parivahan Sewa & Telangana Transport Portal",
         "is_verified": True,
-        "keywords": ["driving licence", "driving license", "llr", "dl renewal", "rto telangana", "parivahan", "vehicle rc", "rto hyderabad"],
+        "keywords": ["driving licence", "driving license", "llr", "dl renewal", "rto telangana", "parivahan", "vehicle rc", "rto hyderabad", "renew driving licence", "renew driving license", "renew my driving licence", "renew my driving license", "driving permit", "rto"],
         "documents": [
             {"name": "Proof of Age (Aadhaar / Passport / SSLC Certificate)", "status": "Typically required", "required": True, "why_needed": "Confirms minimum age eligibility (18+ for 4-wheeler/non-geared)", "check_note": "Name must match Aadhaar"},
             {"name": "Proof of Address (Aadhaar / Utility Bill / Passport)", "status": "Typically required", "required": True, "why_needed": "Assigns local RTO jurisdiction", "check_note": "Must belong to Telangana state for TS RTO"},
@@ -161,7 +161,7 @@ SERVICES_DATABASE = {
         "official_url": "https://ts.meeseva.telangana.gov.in/meeseva/home.htm",
         "portal_name": "Official Telangana MeeSeva & GHMC Portal",
         "is_verified": True,
-        "keywords": ["birth certificate", "birth registration", "born certificate", "meeseva birth cert", "ghmc birth certificate"],
+        "keywords": ["birth certificate", "birth registration", "born certificate", "meeseva birth cert", "ghmc birth certificate", "birth cert", "apply for a birth certificate", "newborn", "birth"],
         "documents": [
             {"name": "Hospital Birth Discharge Slip / Birth Report", "status": "Typically required", "required": True, "why_needed": "Issued by hospital / nursing home where child was born", "check_note": "Contains official hospital stamp and reference"},
             {"name": "Parents' Aadhaar Cards", "status": "Typically required", "required": True, "why_needed": "Identity and address proof of both mother and father", "check_note": "Names must match hospital admission records"},
@@ -214,7 +214,7 @@ SERVICES_DATABASE = {
         "official_url": "https://ts.meeseva.telangana.gov.in/meeseva/home.htm",
         "portal_name": "Official Telangana MeeSeva Portal",
         "is_verified": True,
-        "keywords": ["caste certificate", "income certificate", "residence certificate", "meeseva caste", "meeseva income", "nativity certificate", "integrated certificate"],
+        "keywords": ["caste certificate", "income certificate", "residence certificate", "meeseva caste", "meeseva income", "nativity certificate", "integrated certificate", "caste", "income cert", "get an income certificate", "meeseva", "meeseva services"],
         "documents": [
             {"name": "Applicant & Father's Aadhaar Cards", "status": "Typically required", "required": True, "why_needed": "Identity & demographic details verification", "check_note": "Aadhaar must be linked to active mobile"},
             {"name": "Ration Card / Food Security Card / Voter ID", "status": "Typically required", "required": True, "why_needed": "Family income and household validation", "check_note": "Name must feature on card"},
@@ -241,7 +241,7 @@ SERVICES_DATABASE = {
         "official_url": "https://www.ghmc.gov.in/",
         "portal_name": "Official GHMC & CDMA Telangana Portal",
         "is_verified": True,
-        "keywords": ["property tax", "house tax", "ghmc property tax", "ptin", "telangana property tax", "cdma property tax"],
+        "keywords": ["property tax", "house tax", "ghmc property tax", "ptin", "telangana property tax", "cdma property tax", "pay property tax", "ghmc tax", "pay house tax", "tax demand", "tax notice"],
         "documents": [
             {"name": "Property Tax Identification Number (PTIN)", "status": "Typically required", "required": True, "why_needed": "10-digit unique PTIN number for existing property", "check_note": "Find on previous receipt or search by owner name"},
             {"name": "Registered Sale Deed / Ownership Documents", "status": "May be required depending on your case", "required": False, "why_needed": "Required only for fresh property assessment / mutation", "check_note": "Must be registered at Sub-Registrar Office"},
@@ -376,11 +376,36 @@ def get_verified_service_by_key(service_key: str):
     return SERVICES_DATABASE.get(service_key.lower())
 
 
+import re
+
 def search_service_by_query(query: str):
-    """Fuzzy matches query text against keywords in the local knowledge base."""
-    query_lower = query.lower()
+    """Matches query text against keywords in the local knowledge base using word boundaries and scoring."""
+    if not query:
+        return None
+    query_lower = query.lower().strip()
+
+    best_service = None
+    best_score = 0
+
     for key, service in SERVICES_DATABASE.items():
         for kw in service["keywords"]:
-            if kw in query_lower:
-                return service
-    return None
+            kw_lower = kw.lower()
+            # Escape regex characters
+            pattern = r'\b' + re.escape(kw_lower) + r'\b'
+            if re.search(pattern, query_lower):
+                # Score based on length of matched keyword (longer keywords are more specific)
+                score = len(kw_lower) * 10
+                # Exact title or id match bonus
+                if kw_lower == key or kw_lower == service["title"].lower():
+                    score += 50
+                if score > best_score:
+                    best_score = score
+                    best_service = service
+            elif len(kw_lower) > 3 and kw_lower in query_lower:
+                # Substring match for longer multi-word phrases
+                score = len(kw_lower) * 5
+                if score > best_score:
+                    best_score = score
+                    best_service = service
+
+    return best_service
