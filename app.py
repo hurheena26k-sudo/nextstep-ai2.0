@@ -2,8 +2,9 @@ import streamlit as st
 import os
 import time
 import json
+import hashlib
 
-from agent import AGENT_STAGES, execute_agent_workflow, get_api_key
+from agent import AGENT_STAGES, execute_agent_workflow, get_api_key, transcribe_audio_bytes
 from services_data import SERVICES_DATABASE
 
 
@@ -12,7 +13,7 @@ from services_data import SERVICES_DATABASE
 # ============================================================
 
 st.set_page_config(
-    page_title="NextStep AI • v2.1 | Government Service Navigation Assistant",
+    page_title="NextStep AI • v2.2 | Government Navigation & Form Assistant",
     page_icon="🏛️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -54,6 +55,12 @@ if "active_progress" not in st.session_state:
         "next_action_ready": False,
         "final_submission_completed": False
     }
+
+if "processed_audio_hashes" not in st.session_state:
+    st.session_state.processed_audio_hashes = set()
+
+if "voice_status_message" not in st.session_state:
+    st.session_state.voice_status_message = None
 
 
 # ============================================================
@@ -147,6 +154,35 @@ st.markdown("""
         font-weight: 600;
     }
 
+    /* Meta Info Card */
+    .meta-box {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 0.8rem 1rem;
+        margin-bottom: 0.8rem;
+    }
+
+    /* Form Field Mapping Box */
+    .form-workspace-card {
+        background: #1e293b;
+        border: 1px solid #0284c7;
+        border-radius: 12px;
+        padding: 1.2rem;
+        margin: 1rem 0;
+    }
+
+    .form-field-row {
+        background: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 0.6rem 1rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
     /* Progress Visualizer Bar */
     .progress-bar-container {
         background: #1e293b;
@@ -175,14 +211,6 @@ st.markdown("""
     }
 
     /* Document Card Styling */
-    .doc-card {
-        background: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 10px;
-        padding: 1rem;
-        margin-bottom: 0.8rem;
-    }
-
     .doc-tag-req {
         background: rgba(239, 68, 68, 0.2);
         color: #f87171;
@@ -233,9 +261,9 @@ st.markdown("""
 
 with st.sidebar:
     st.markdown("### 🏛️ NextStep AI Settings")
-    st.caption("AI Public Service Navigation Assistant")
+    st.caption("AI Public Service Navigation & Form Assistant")
 
-    st.markdown('<span class="version-badge">NextStep AI • v2.1</span>', unsafe_allow_html=True)
+    st.markdown('<span class="version-badge">NextStep AI • v2.2</span>', unsafe_allow_html=True)
     st.divider()
 
     # Language Selector
@@ -293,7 +321,7 @@ with st.sidebar:
         }
         st.rerun()
 
-    st.caption("NextStep AI • v2.1 Production Edition")
+    st.caption("NextStep AI • v2.2 Production Edition")
 
 
 # ============================================================
@@ -307,7 +335,7 @@ st.markdown("""
         <div class="brand-tagline">"Tell us what happened. We'll help you figure out what to do next."</div>
     </div>
     <div>
-        <span class="version-badge">NextStep AI • v2.1</span>
+        <span class="version-badge">NextStep AI • v2.2</span>
         <span class="badge-telangana" style="margin-left:8px;">Telangana MeeSeva / GHMC</span>
         <span class="badge-central" style="margin-left:8px;">Central Services</span>
     </div>
@@ -358,8 +386,8 @@ with cols[2]:
     if st.button("📑 Caste & Income Cert\n\nApply via MeeSeva Telangana", use_container_width=True):
         st.session_state.pending_prompt = "How do I apply for an Income Certificate and Caste Certificate on MeeSeva Telangana?"
 with cols[3]:
-    if st.button("🏠 Property Tax Dues\n\nCalculate & pay GHMC tax", use_container_width=True):
-        st.session_state.pending_prompt = "How do I check my PTIN and pay GHMC house property tax online?"
+    if st.button("📝 Form Filling Assistant\n\nHelp fill Passport / Driving Licence Form", use_container_width=True):
+        st.session_state.pending_prompt = "My name is K. Rajesh, DOB 15/08/1995, address Jubilee Hills Hyderabad. Help me fill the Passport application form."
 
 
 # ============================================================
@@ -384,9 +412,46 @@ def render_response_card(res, index):
         else:
             st.markdown(f'<div style="text-align:right;"><span class="badge-central">{j_label}</span></div>', unsafe_allow_html=True)
 
+    # 2. Service Discovery Metadata Box (Eligibility, Fees, Timeline)
+    m_col1, m_col2, m_col3 = st.columns(3)
+    with m_col1:
+        st.markdown("<div class='meta-box'><strong>⚖️ Eligibility</strong><br><small>" + str(res.get("eligibility", "Verified eligibility rules apply.")) + "</small></div>", unsafe_allow_html=True)
+    with m_col2:
+        st.markdown("<div class='meta-box'><strong>💰 Fees</strong><br><small>" + str(res.get("fees", "Official portal fees apply.")) + "</small></div>", unsafe_allow_html=True)
+    with m_col3:
+        st.markdown("<div class='meta-box'><strong>⏱️ Processing Time</strong><br><small>" + str(res.get("processing_time", "Standard turnaround timeline.")) + "</small></div>", unsafe_allow_html=True)
+
+    if res.get("uncertainty_note"):
+        st.caption(f"ℹ️ **Note on Uncertainty / Verification**: {res.get('uncertainty_note')}")
+
     # Clarification Alert if crucial details missing
     if res.get("clarification_needed"):
-        st.warning(f"❓ **Clarification Question**: {res.get('clarification_needed')}")
+        st.warning(f"❓ **Clarification Needed**: {res.get('clarification_needed')}")
+
+    # 3. AI-Assisted Form Filling Workspace Panel
+    if res.get("form_assistant_payload"):
+        fp = res["form_assistant_payload"]
+        st.markdown('<div class="form-workspace-card">', unsafe_allow_html=True)
+        st.markdown(f"#### 📝 AI-Assisted Form Workspace: {fp.get('form_name', 'Official Form')}")
+        st.write(f"**Instructions**: {fp.get('portal_fill_instructions', 'Review and transfer details onto the official portal.')}")
+
+        mapped = fp.get("mapped_fields", [])
+        if mapped:
+            st.markdown("##### Mapped Form Fields:")
+            for field in mapped:
+                field_label = field.get("label", "Field")
+                field_val = field.get("value", "Not provided")
+                field_req = field.get("required", False)
+
+                req_str = "🔴 Required" if field_req else "⚪ Optional"
+                st.text_input(f"{field_label} ({req_str})", value=field_val, key=f"form_fld_{index}_{field.get('field_id', 'fld')}")
+
+        missing = fp.get("missing_required_fields", [])
+        if missing:
+            st.warning(f"⚠️ **Missing Required Fields**: {', '.join(missing)}")
+
+        st.caption("🔒 *NextStep AI prepares these details locally for your review. Complete final submission on the official portal.*")
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # Notice Analysis Panel
     if res.get("notice_analysis"):
@@ -470,7 +535,7 @@ def render_response_card(res, index):
 st.markdown("### 💬 Conversational AI Assistant")
 
 if not st.session_state.chat_history:
-    st.info("👋 **Welcome to NextStep AI!** Describe your situation naturally (e.g. *'I moved to Hyderabad and need to update my documents'* or paste a government notice text).")
+    st.info("👋 **Welcome to NextStep AI!** Describe your situation naturally (e.g. *'I moved to Hyderabad and need to update my documents'* or paste a government notice / ask for form filling assistance).")
 
 for idx, message in enumerate(st.session_state.chat_history):
     role = message.get("role")
@@ -508,8 +573,8 @@ with q_cols[3]:
     if st.button("🌐 Find official website", use_container_width=True):
         st.session_state.pending_prompt = "Where is the verified official website link?"
 with q_cols[4]:
-    if st.button("🛠️ Can you do this for me?", use_container_width=True):
-        st.session_state.pending_prompt = "Can you do this for me?"
+    if st.button("📝 Help me fill form", use_container_width=True):
+        st.session_state.pending_prompt = "Help me fill the application form for this service."
 
 
 # ============================================================
@@ -520,28 +585,65 @@ st.markdown("")
 input_col, audio_col = st.columns([5, 1], vertical_alignment="bottom")
 
 with input_col:
-    chat_prompt = st.chat_input("Describe your situation in natural language...")
+    chat_prompt = st.chat_input("Describe your situation or enter details to fill a form...")
 
 with audio_col:
     audio_val = st.audio_input("🎙️ Voice", key="audio_mic")
 
-if audio_val is not None and "audio_processed" not in st.session_state:
-    st.info("🎙️ Audio received! Processing transcription fallback.")
-    st.session_state.pending_prompt = "I moved to Hyderabad and need to update my address in Aadhaar."
-    st.session_state.audio_processed = True
+# Process Voice Input if audio is present and hasn't been processed yet
+if audio_val is not None:
+    try:
+        if hasattr(audio_val, "seek"):
+            audio_val.seek(0)
+        audio_bytes = audio_val.read()
+        if hasattr(audio_val, "seek"):
+            audio_val.seek(0)
+        audio_hash = hashlib.sha256(audio_bytes).hexdigest() if audio_bytes else None
+
+        if audio_hash and audio_hash not in st.session_state.processed_audio_hashes:
+            st.session_state.processed_audio_hashes.add(audio_hash)
+
+            api_key_for_transcription = get_api_key(safe_get_secrets()) or st.session_state.user_api_key
+            transcription_res = transcribe_audio_bytes(audio_bytes, api_key_for_transcription)
+
+            if transcription_res.get("success"):
+                transcribed_text = transcription_res["text"]
+                st.session_state.voice_status_message = f"🎙️ Transcribed Voice Question: \"{transcribed_text}\""
+                st.session_state.pending_prompt = transcribed_text
+            else:
+                st.session_state.voice_status_message = None
+                st.warning(f"⚠️ {transcription_res.get('message', 'Voice input was empty or unclear. Please try speaking again.')}")
+    except Exception as e:
+        st.error(f"Error reading voice recording: {e}")
+
+if st.session_state.voice_status_message:
+    st.info(st.session_state.voice_status_message)
 
 
 # ============================================================
 # PROCESS AGENT WORKFLOW ON ACTIVE PROMPT
 # ============================================================
 
-active_user_prompt = chat_prompt or st.session_state.pending_prompt
+# Priority order: Typed chat prompt overrides button/voice pending prompt
+if chat_prompt:
+    active_user_prompt = chat_prompt
+    st.session_state.pending_prompt = None
+    st.session_state.voice_status_message = None
+elif st.session_state.pending_prompt:
+    active_user_prompt = st.session_state.pending_prompt
+    st.session_state.pending_prompt = None
+else:
+    active_user_prompt = None
 
 if active_user_prompt:
-    st.session_state.pending_prompt = None
+    # Preserve transcribed voice notice in message content if voice was used
+    user_display_content = active_user_prompt
+    if st.session_state.voice_status_message:
+        user_display_content = f"🎙️ *(Voice Transcribed)* {active_user_prompt}"
+        st.session_state.voice_status_message = None
 
     # Append user message
-    st.session_state.chat_history.append({"role": "user", "content": active_user_prompt})
+    st.session_state.chat_history.append({"role": "user", "content": user_display_content})
 
     with st.chat_message("user", avatar="👤"):
         st.markdown(active_user_prompt)
@@ -615,7 +717,7 @@ if active_user_prompt:
 # MANDATORY DISCLAIMER FOOTER
 st.markdown("""
 <div class="disclaimer-banner">
-    🔒 <strong>NextStep AI Disclaimer</strong>: NextStep AI is an independent AI navigational guidance assistant.
+    🔒 <strong>NextStep AI Disclaimer</strong>: NextStep AI is an independent AI navigational guidance & form assistant.
     It does not submit government applications on your behalf, bypass OTP/CAPTCHA controls, or access private government databases.
     Always verify official fees and legal requirements directly on official <code>.gov.in</code> websites.
 </div>

@@ -1,29 +1,25 @@
 """
-Official services knowledge base for NextStep AI (v2.1).
-Supports verified detailed data for core Indian & Telangana services:
-- Passport (Central)
-- Aadhaar (Central)
-- PAN Card (Central)
-- Voter ID (Central / ECI)
-- Driving Licence & Vehicle RC (Central / Telangana RTO)
-- Birth Certificate (Telangana / GHMC / MeeSeva)
-- Death Certificate (Telangana / GHMC / MeeSeva)
-- Caste, Income & Residence Certificates (Telangana / MeeSeva)
-- Property Tax (Telangana / GHMC / CDMA)
-- Telangana ePASS / Welfare Schemes (Telangana / Central)
-- Business / MSME Udyam Registration (Central & TS-iPASS)
-- Income Tax Return (ITR) Filing (Central)
+Official services knowledge base for NextStep AI (v2.2).
+Supports verified detailed data for core Indian & Telangana services with:
+- Service Discovery (Name, Category, Description, Eligibility, Fees, Processing Time)
+- Verified Official Government Portal Links
+- Document Intelligence Checklist
+- Form Filling Schemas and Field Mappings
 """
 
 SERVICES_DATABASE = {
     "passport": {
         "id": "passport",
-        "title": "Passport Services",
+        "title": "Passport Application & Renewal Services",
         "category": "Identity & Travel",
         "jurisdiction": "Central",
         "jurisdiction_label": "Central Government (Ministry of External Affairs)",
         "icon": "🛂",
         "description": "Apply for fresh passport, re-issue, or renewal through Passport Seva Kendras across India.",
+        "eligibility": "Indian citizens holding valid proof of identity, age (DD/MM/YYYY), and address. No age bar (minors require parental consent).",
+        "fees": "₹1,500 for Normal 36-page booklet; ₹2,000 for 60-page booklet; ₹3,500 for Tatkaal service.",
+        "processing_time": "7-14 working days for Normal (post police verification); 1-3 working days for Tatkaal.",
+        "uncertainty_note": "Police verification turnaround time varies by local police station jurisdiction.",
         "official_url": "https://www.passportindia.gov.in/",
         "portal_name": "Official Passport Seva Portal (MEA)",
         "is_verified": True,
@@ -36,21 +32,37 @@ SERVICES_DATABASE = {
         ],
         "steps": [
             {"step": 1, "title": "Register on Passport Seva Portal", "description": "Create an account on passportindia.gov.in and choose your nearest Passport Seva Kendra (PSK) or Post Office PSK."},
-            {"step": 2, "title": "Fill Application Form", "description": "Select 'Fresh Passport' or 'Re-issue', complete personal details, and upload scanned copies of required documents."},
+            {"step": 2, "title": "Fill Form RPF-01 Online", "description": "Select 'Fresh Passport' or 'Re-issue', complete personal details, and upload scanned copies of required documents."},
             {"step": 3, "title": "Pay Application Fee & Book Appointment", "description": "Pay ₹1,500 (Normal) or ₹3,500 (Tatkaal) online and select an available date and time slot for PSK visit."},
             {"step": 4, "title": "Visit PSK for Biometrics & Document Verification", "description": "Visit designated PSK with original documents. Get biometrics (photo & fingerprints) captured."},
             {"step": 5, "title": "Police Verification & Delivery", "description": "Track police verification status online. Passport will be printed and dispatched via Speed Post."}
         ],
+        "form_schema": {
+            "form_name": "Passport Application Form RPF-01",
+            "fields": [
+                {"field_id": "full_name", "label": "Given Name & Surname", "required": True, "type": "string", "example": "Koneru Rajesh"},
+                {"field_id": "dob", "label": "Date of Birth (DD/MM/YYYY)", "required": True, "type": "date", "example": "15/08/1995"},
+                {"field_id": "gender", "label": "Gender", "required": True, "type": "select", "options": ["Male", "Female", "Transgender"]},
+                {"field_id": "address", "label": "Current Residential Address", "required": True, "type": "string", "example": "H.No 12-3, Jubilee Hills, Hyderabad, TS"},
+                {"field_id": "mobile", "label": "Mobile Number", "required": True, "type": "phone", "example": "9876543210"},
+                {"field_id": "email", "label": "Email Address", "required": True, "type": "email", "example": "rajesh@example.com"},
+                {"field_id": "psk_location", "label": "Preferred Passport Seva Kendra", "required": True, "type": "string", "example": "PSK Begumpet / PSK Tolichowki"}
+            ]
+        },
         "verification_notes": "Fees (₹1,500 normal / ₹3,500 Tatkaal) and document checklists are verified against MEA guidelines."
     },
     "aadhaar": {
         "id": "aadhaar",
-        "title": "Aadhaar Services",
+        "title": "Aadhaar Enrolment & Update Services",
         "category": "Identity & Civil",
         "jurisdiction": "Central",
         "jurisdiction_label": "Central Government (UIDAI)",
         "icon": "🪪",
         "description": "Enrol for a new Aadhaar card, update biometric/demographic details (Name, Address, Mobile, DOB).",
+        "eligibility": "All residents of India residing in the country for 182 days or more in the preceding 12 months.",
+        "fees": "New enrolment is FREE. Demographic update fee is ₹50; Biometric update fee is ₹100.",
+        "processing_time": "5-15 working days for online address update; up to 30 days for biometric/ASK updates.",
+        "uncertainty_note": "Aadhaar update requests are subject to UIDAI backend document validation.",
         "official_url": "https://uidai.gov.in/",
         "portal_name": "Official UIDAI Portal / myAadhaar",
         "is_verified": True,
@@ -68,16 +80,30 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "Receive Enrolment / Update Slip", "description": "Collect the 14-digit Enrolment ID (EID) slip to track your update status online."},
             {"step": 5, "title": "Download e-Aadhaar", "description": "Once updated, download password-protected e-Aadhaar PDF from myaadhaar.uidai.gov.in."}
         ],
+        "form_schema": {
+            "form_name": "Aadhaar Demographic Update Form",
+            "fields": [
+                {"field_id": "aadhaar_number", "label": "12-Digit Aadhaar Number", "required": True, "type": "string", "example": "1234 5678 9012"},
+                {"field_id": "full_name", "label": "Full Name as per POI Document", "required": True, "type": "string", "example": "Gundeti Sravan"},
+                {"field_id": "new_address", "label": "New Residential Address", "required": True, "type": "string", "example": "Flat 302, Cyber Towers Area, Madhapur, Hyderabad, TS"},
+                {"field_id": "pincode", "label": "Pincode", "required": True, "type": "string", "example": "500081"},
+                {"field_id": "mobile", "label": "Aadhaar Linked Mobile Number", "required": True, "type": "phone", "example": "9123456789"}
+            ]
+        },
         "verification_notes": "Aadhaar enrolment is free. Demographic update is ₹50 and biometric update is ₹100 as per UIDAI official rules."
     },
     "pan": {
         "id": "pan",
-        "title": "PAN Card Services",
+        "title": "PAN Card Application & Correction Services",
         "category": "Taxation & Finance",
         "jurisdiction": "Central",
         "jurisdiction_label": "Central Government (Income Tax Dept / Protean NSDL)",
         "icon": "💳",
         "description": "Apply for new Permanent Account Number (PAN Card), instant e-PAN, or correct existing PAN details.",
+        "eligibility": "Any individual, company, or entity needing to carry out financial transactions in India.",
+        "fees": "Instant e-PAN via Income Tax portal is FREE. Physical PAN card application costs ₹107 within India.",
+        "processing_time": "10 minutes for Instant e-PAN PDF; 7-10 working days for physical plastic card delivery.",
+        "uncertainty_note": "Instant e-PAN requires an active mobile linked to Aadhaar for e-KYC OTP.",
         "official_url": "https://www.incometax.gov.in/iec/foportal/",
         "portal_name": "Official Income Tax e-Filing & Protean Portal",
         "is_verified": True,
@@ -95,6 +121,16 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "Pay Processing Fee (For Physical Card)", "description": "Instant e-PAN is free. Physical card delivery costs approx ₹107 within India."},
             {"step": 5, "title": "Download e-PAN / Receive Physical Card", "description": "Download e-PAN PDF within hours, or receive physical plastic card via post in 7-10 working days."}
         ],
+        "form_schema": {
+            "form_name": "PAN Card Application Form 49A",
+            "fields": [
+                {"field_id": "aadhaar_number", "label": "Aadhaar Number", "required": True, "type": "string", "example": "9876 5432 1098"},
+                {"field_id": "full_name", "label": "Full Name as on Aadhaar", "required": True, "type": "string", "example": "Vemula Srinivas"},
+                {"field_id": "father_name", "label": "Father's Full Name", "required": True, "type": "string", "example": "Vemula Satyanarayana"},
+                {"field_id": "dob", "label": "Date of Birth (DD/MM/YYYY)", "required": True, "type": "date", "example": "20/05/1990"},
+                {"field_id": "mobile", "label": "Mobile Number", "required": True, "type": "phone", "example": "9988776655"}
+            ]
+        },
         "verification_notes": "Instant e-PAN via Income Tax portal is completely free for Aadhaar holders. Physical card application costs ₹107."
     },
     "voter_id": {
@@ -105,14 +141,18 @@ SERVICES_DATABASE = {
         "jurisdiction_label": "Election Commission of India (ECI / Voter Services Portal)",
         "icon": "🗳️",
         "description": "Apply for new Voter ID (Form 6), address change/shifting (Form 8), or download e-EPIC.",
+        "eligibility": "Indian citizens aged 18 years or above on the qualifying date of the electoral roll year.",
+        "fees": "FREE of charge for online Form 6 / Form 8 enrolment and e-EPIC download.",
+        "processing_time": "15-30 days following field verification by Booth Level Officer (BLO).",
+        "uncertainty_note": "Final inclusion in voter list depends on Electoral Registration Officer (ERO) approval.",
         "official_url": "https://voters.eci.gov.in/",
         "portal_name": "Official Voter Services Portal (ECI)",
         "is_verified": True,
         "keywords": ["voter", "voter id", "election card", "nvsp", "e-epic", "voter registration", "form 6", "form 8", "shift voter address"],
         "documents": [
             {"name": "Passport Size Photograph", "status": "Typically required", "required": True, "why_needed": "For printing on Voter ID / e-EPIC", "check_note": "White background, clear recent photo"},
-            {"name": "Proof of Age / DOB (Aadhaar / Birth Cert / Birth Certificate)", "status": "Typically required", "required": True, "why_needed": "Confirms age eligibility (18+ years)", "check_note": "Applicant must be 18 on qualifying date"},
-            {"name": "Proof of Address (Aadhaar / Electricity Bill / Water Bill / Rent Agreement)", "status": "Typically required", "required": True, "why_needed": "Determines constituency & polling station", "check_note": "Must reflect current address"}
+            {"name": "Proof of Age / DOB (Aadhaar / Birth Cert)", "status": "Typically required", "required": True, "why_needed": "Confirms age eligibility (18+ years)", "check_note": "Applicant must be 18 on qualifying date"},
+            {"name": "Proof of Address (Aadhaar / Electricity Bill / Rent Agreement)", "status": "Typically required", "required": True, "why_needed": "Determines constituency & polling station", "check_note": "Must reflect current address"}
         ],
         "steps": [
             {"step": 1, "title": "Access ECI Voter Portal", "description": "Visit voters.eci.gov.in and log in or create an account using your mobile number."},
@@ -121,6 +161,16 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "Field Verification by BLO", "description": "Booth Level Officer (BLO) will conduct field verification at your residence."},
             {"step": 5, "title": "Download e-EPIC Voter Card", "description": "Upon approval, download digitally signed e-EPIC PDF from voters.eci.gov.in."}
         ],
+        "form_schema": {
+            "form_name": "ECI Voter Registration Form 6 / Form 8",
+            "fields": [
+                {"field_id": "full_name", "label": "Full Name", "required": True, "type": "string", "example": "Banda Anusha"},
+                {"field_id": "state_assembly", "label": "State & Assembly Constituency", "required": True, "type": "string", "example": "Telangana - Khairatabad (160)"},
+                {"field_id": "dob", "label": "Date of Birth", "required": True, "type": "date", "example": "10/12/2002"},
+                {"field_id": "current_address", "label": "Present Residential Address", "required": True, "type": "string", "example": "H.No 4-1-88, Somajiguda, Hyderabad, TS"},
+                {"field_id": "epic_number", "label": "Existing EPIC Number (if shifting address)", "required": False, "type": "string", "example": "ABC1234567"}
+            ]
+        },
         "verification_notes": "Voter enrolment and address correction via Form 6 / Form 8 on ECI portal are free of charge."
     },
     "driving_licence": {
@@ -131,12 +181,16 @@ SERVICES_DATABASE = {
         "jurisdiction_label": "Telangana Transport Dept / Ministry of Road Transport (Parivahan)",
         "icon": "🚗",
         "description": "Apply for Learner's Licence (LLR), Permanent Driving Licence (DL), DL renewal, or vehicle RC transfer in Telangana.",
+        "eligibility": "Age 16+ for gearless 50cc two-wheeler; Age 18+ for motor vehicle with gear / 4-wheeler; Valid LLR mandatory before permanent DL.",
+        "fees": "LLR Test fee: ₹150 + ₹50 slot fee. Permanent DL fee: ₹200 + ₹300 test fee + ₹200 smart card fee.",
+        "processing_time": "LLR generated instantly online upon passing computer test; Permanent DL dispatched in 7-10 days after track test.",
+        "uncertainty_note": "Driving track test slot availability varies by individual Telangana RTO office.",
         "official_url": "https://parivahan.gov.in/",
         "portal_name": "Official Parivahan Sewa & Telangana Transport Portal",
         "is_verified": True,
         "keywords": ["driving licence", "driving license", "llr", "dl renewal", "rto telangana", "parivahan", "vehicle rc", "rto hyderabad"],
         "documents": [
-            {"name": "Proof of Age (Aadhaar / Passport / SSLC Certificate)", "status": "Typically required", "required": True, "why_needed": "Confirms minimum age eligibility (18+ for 4-wheeler/non-geared)", "check_note": "Name must match Aadhaar"},
+            {"name": "Proof of Age (Aadhaar / Passport / SSLC Certificate)", "status": "Typically required", "required": True, "why_needed": "Confirms minimum age eligibility", "check_note": "Name must match Aadhaar"},
             {"name": "Proof of Address (Aadhaar / Utility Bill / Passport)", "status": "Typically required", "required": True, "why_needed": "Assigns local RTO jurisdiction", "check_note": "Must belong to Telangana state for TS RTO"},
             {"name": "Learner's Licence (LLR) Number", "status": "May be required depending on your case", "required": False, "why_needed": "Mandatory before applying for Permanent DL", "check_note": "LLR must be valid (>30 days old and <180 days old)"},
             {"name": "Medical Certificate (Form 1-A)", "status": "May be required depending on your case", "required": False, "why_needed": "Required for applicants over 40 years or commercial DL", "check_note": "Signed by registered medical practitioner"}
@@ -148,16 +202,30 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "Biometric Capture & Test Approval", "description": "Upon passing the driving test, complete photo and biometric capture at RTO desk."},
             {"step": 5, "title": "Receive Smart Card DL", "description": "Smart card DL will be dispatched via post, or download digital DL on DigiLocker / mParivahan app."}
         ],
+        "form_schema": {
+            "form_name": "Telangana RTO Learner's Licence (LLR) Application",
+            "fields": [
+                {"field_id": "full_name", "label": "Full Name as per ID", "required": True, "type": "string", "example": "Chalamalasetty Harish"},
+                {"field_id": "rto_office", "label": "Telangana RTO Office", "required": True, "type": "string", "example": "RTO Khairatabad / RTO Kondapur"},
+                {"field_id": "class_of_vehicle", "label": "Class of Vehicle", "required": True, "type": "select", "options": ["MCWG (Motor Cycle With Gear)", "LMV (Light Motor Vehicle - Car)", "MCWOG (Motor Cycle Without Gear)"]},
+                {"field_id": "blood_group", "label": "Blood Group", "required": True, "type": "string", "example": "O Positive (O+)"},
+                {"field_id": "mobile", "label": "Mobile Number", "required": True, "type": "phone", "example": "9849012345"}
+            ]
+        },
         "verification_notes": "Official fees: LLR test fee ₹150 + ₹50 slot fee; Permanent DL fee ₹200 + ₹300 test fee + ₹200 smart card fee."
     },
     "birth_certificate": {
         "id": "birth_certificate",
-        "title": "Birth Certificate Services",
+        "title": "Birth Certificate Registration & Copies",
         "category": "Civil Registration",
         "jurisdiction": "Telangana",
         "jurisdiction_label": "Telangana State Government (MeeSeva / GHMC / CDMA)",
         "icon": "👶",
         "description": "Register birth, obtain birth certificate copy, or apply for late birth registration in Telangana.",
+        "eligibility": "Child born within Telangana municipal or GHMC limits. Parents or legal guardians can apply.",
+        "fees": "Birth registration within 21 days is FREE at municipal office. MeeSeva user fee is ₹35 - ₹50 per certified copy.",
+        "processing_time": "3-7 working days for digital certificate download via MeeSeva.",
+        "uncertainty_note": "Birth registration beyond 1 year requires Revenue Divisional Officer (RDO) / Magistrate sanction order.",
         "official_url": "https://ts.meeseva.telangana.gov.in/meeseva/home.htm",
         "portal_name": "Official Telangana MeeSeva & GHMC Portal",
         "is_verified": True,
@@ -175,16 +243,31 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "Pay Service Fee", "description": "Pay official MeeSeva user charges (approx ₹35 - ₹50 per copy)."},
             {"step": 5, "title": "Download Digitally Signed Certificate", "description": "Once approved by GHMC Registrar, download digitally signed PDF from MeeSeva or collect printed copy."}
         ],
+        "form_schema": {
+            "form_name": "MeeSeva Telangana Birth Certificate Application",
+            "fields": [
+                {"field_id": "child_name", "label": "Child's Name (if named)", "required": False, "type": "string", "example": "Gautam Reddy"},
+                {"field_id": "dob", "label": "Date of Birth (DD/MM/YYYY)", "required": True, "type": "date", "example": "05/03/2024"},
+                {"field_id": "hospital_name", "label": "Hospital / Place of Birth", "required": True, "type": "string", "example": "Fernandez Hospital, Bogulkunta, Hyderabad"},
+                {"field_id": "father_name", "label": "Father's Name", "required": True, "type": "string", "example": "Gautam Vikram Reddy"},
+                {"field_id": "mother_name", "label": "Mother's Name", "required": True, "type": "string", "example": "Gautam Sneha"},
+                {"field_id": "meeseva_center", "label": "MeeSeva Circle / Center", "required": True, "type": "string", "example": "GHMC Circle 10 (Abids)"}
+            ]
+        },
         "verification_notes": "Birth registration within 21 days is free at local municipal offices. Late registration beyond 1 year requires RDO permission."
     },
     "death_certificate": {
         "id": "death_certificate",
-        "title": "Death Certificate Services",
+        "title": "Death Certificate Registration & Copies",
         "category": "Civil Registration",
         "jurisdiction": "Telangana",
         "jurisdiction_label": "Telangana State Government (GHMC / MeeSeva)",
         "icon": "📜",
         "description": "Register death or obtain official death certificate in Greater Hyderabad (GHMC) and Telangana state.",
+        "eligibility": "Death occurring within Telangana municipal or GHMC limits. Close family members or legal heirs can apply.",
+        "fees": "Registration within 21 days is FREE; MeeSeva user service charge is ₹35 per certified copy.",
+        "processing_time": "3-5 working days following municipal health officer verification.",
+        "uncertainty_note": "Unregistered deaths beyond 1 year require magistrate / RDO approval.",
         "official_url": "https://ts.meeseva.telangana.gov.in/meeseva/home.htm",
         "portal_name": "Official Telangana MeeSeva & GHMC Portal",
         "is_verified": True,
@@ -201,6 +284,15 @@ SERVICES_DATABASE = {
             {"step": 3, "title": "Verification by Municipal Health Officer", "description": "GHMC Assistant Medical Officer of Health (AMOH) verifies records."},
             {"step": 4, "title": "Download Digitally Signed Certificate", "description": "Download death certificate PDF from MeeSeva portal after approval."}
         ],
+        "form_schema": {
+            "form_name": "GHMC Death Certificate Registration Form",
+            "fields": [
+                {"field_id": "deceased_name", "label": "Deceased Person's Full Name", "required": True, "type": "string", "example": "Late K. Ramaswamy"},
+                {"field_id": "date_of_death", "label": "Date of Death (DD/MM/YYYY)", "required": True, "type": "date", "example": "12/01/2024"},
+                {"field_id": "place_of_death", "label": "Place of Death (Hospital / Residence)", "required": True, "type": "string", "example": "NIMS Hospital, Punjagutta, Hyderabad"},
+                {"field_id": "applicant_relation", "label": "Applicant Relation to Deceased", "required": True, "type": "string", "example": "Son / Daughter / Spouse"}
+            ]
+        },
         "verification_notes": "Death registration within 21 days is free. Official MeeSeva application fee is ₹35 per certified copy."
     },
     "caste_income_certificate": {
@@ -211,6 +303,10 @@ SERVICES_DATABASE = {
         "jurisdiction_label": "Telangana Revenue Dept (MeeSeva / Revenue Department)",
         "icon": "📑",
         "description": "Apply for Integrated Community, Nativity, Caste Certificate, or Annual Income Certificate in Telangana.",
+        "eligibility": "Permanent residents of Telangana state needing certificates for education admissions or welfare eligibility.",
+        "fees": "MeeSeva official application fee is ₹45.",
+        "processing_time": "7-15 working days following VRO and Tahsildar field inquiry.",
+        "uncertainty_note": "Income certificate validity in Telangana is 1 financial year; Caste certificate is permanent unless revoked.",
         "official_url": "https://ts.meeseva.telangana.gov.in/meeseva/home.htm",
         "portal_name": "Official Telangana MeeSeva Portal",
         "is_verified": True,
@@ -228,6 +324,15 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "MRO / VRO Field Enquiry", "description": "Village Revenue Officer (VRO) and Tahsildar verify details."},
             {"step": 5, "title": "Download Certificate with QR Code", "description": "Download digitally signed certificate from MeeSeva upon Tahsildar approval."}
         ],
+        "form_schema": {
+            "form_name": "MeeSeva Revenue Certificate Application Form",
+            "fields": [
+                {"field_id": "applicant_name", "label": "Applicant Name", "required": True, "type": "string", "example": "M. Suresh"},
+                {"field_id": "father_name", "label": "Father's / Husband's Name", "required": True, "type": "string", "example": "M. Narasimha"},
+                {"field_id": "mandal_district", "label": "Mandal & District in Telangana", "required": True, "type": "string", "example": "Serilingampally Mandal, Ranga Reddy District"},
+                {"field_id": "annual_income", "label": "Claimed Annual Income (₹)", "required": True, "type": "number", "example": "150000"}
+            ]
+        },
         "verification_notes": "Official MeeSeva application user fee is ₹45. Income certificate validity in Telangana is 1 year."
     },
     "property_tax": {
@@ -238,6 +343,10 @@ SERVICES_DATABASE = {
         "jurisdiction_label": "Telangana State Government (GHMC / CDMA)",
         "icon": "🏠",
         "description": "Pay property tax, calculate assessment, download tax receipt, or search PTIN in Greater Hyderabad (GHMC) and Telangana Municipalities.",
+        "eligibility": "Property owners or occupiers residing in Greater Hyderabad (GHMC) or Telangana municipalities.",
+        "fees": "Calculated based on property plinth area, usage type (residential/commercial), and zone circle rate. 5% early bird discount in April.",
+        "processing_time": "Instant digital tax receipt download upon online payment.",
+        "uncertainty_note": "Fresh assessment or revision requests require physical inspection by GHMC Town Planning surveyor.",
         "official_url": "https://www.ghmc.gov.in/",
         "portal_name": "Official GHMC & CDMA Telangana Portal",
         "is_verified": True,
@@ -255,6 +364,15 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "Pay Online", "description": "Pay securely using Net Banking, UPI, Credit/Debit Card, or at MeeSeva center."},
             {"step": 5, "title": "Download Receipt", "description": "Download digitally signed official GHMC property tax receipt."}
         ],
+        "form_schema": {
+            "form_name": "GHMC Property Tax Payment Form",
+            "fields": [
+                {"field_id": "ptin", "label": "10-Digit PTIN Number", "required": True, "type": "string", "example": "1080123456"},
+                {"field_id": "owner_name", "label": "Property Owner Name", "required": True, "type": "string", "example": "P. Ramesh Chandra"},
+                {"field_id": "door_no", "label": "Door / House Number", "required": True, "type": "string", "example": "8-2-293/82/A, Road No 12, Banjara Hills"},
+                {"field_id": "mobile", "label": "Owner Mobile Number", "required": True, "type": "phone", "example": "9848011223"}
+            ]
+        },
         "verification_notes": "Verified against GHMC & CDMA Telangana portals. 5% early bird discount applies if paid before April 30."
     },
     "welfare_schemes": {
@@ -265,6 +383,10 @@ SERVICES_DATABASE = {
         "jurisdiction_label": "Telangana Welfare Departments (ePASS / Govt of Telangana)",
         "icon": "🎓",
         "description": "Apply for ePASS post-matric scholarship, Kalyana Lakshmi / Shaadi Mubarak, Rythu Bandhu, or pension schemes in Telangana.",
+        "eligibility": "Telangana residents meeting specific income limits (<₹2 Lakhs p.a. for urban SC/ST/BC/Minority) and academic/category criteria.",
+        "fees": "FREE application submission on official ePASS portal.",
+        "processing_time": "30-60 days following college verification and District Welfare Officer (DWO) approval.",
+        "uncertainty_note": "Disbursement timeline depends on state budget release cycles.",
         "official_url": "https://telanganaepass.cgg.gov.in/",
         "portal_name": "Official Telangana ePASS & Welfare Portal",
         "is_verified": True,
@@ -282,6 +404,16 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "Upload Document Scans", "description": "Upload scanned bank passbook, income cert, caste cert, and college bonafide."},
             {"step": 5, "title": "College / District Welfare Officer Verification", "description": "Application will be verified by institution principal and District Welfare Officer."}
         ],
+        "form_schema": {
+            "form_name": "Telangana ePASS Post-Matric Scholarship Form",
+            "fields": [
+                {"field_id": "ssc_hall_ticket", "label": "SSC Hall Ticket Number", "required": True, "type": "string", "example": "2018123456"},
+                {"field_id": "ssc_pass_year", "label": "SSC Year of Passing", "required": True, "type": "number", "example": "2018"},
+                {"field_id": "student_aadhaar", "label": "Student Aadhaar Number", "required": True, "type": "string", "example": "1234 5678 9012"},
+                {"field_id": "income_cert_no", "label": "MeeSeva Income Certificate No", "required": True, "type": "string", "example": "IC0123456789"},
+                {"field_id": "bank_ifsc", "label": "Bank Account IFSC Code", "required": True, "type": "string", "example": "SBIN0020123"}
+            ]
+        },
         "verification_notes": "Official ePASS portal managed by CGG Telangana. No fee is charged for online application submission."
     },
     "business_msme": {
@@ -292,6 +424,10 @@ SERVICES_DATABASE = {
         "jurisdiction_label": "Ministry of MSME & Telangana TS-iPASS",
         "icon": "💼",
         "description": "Register Micro, Small, or Medium Enterprise (Udyam Registration) or apply for TS-iPASS industrial clearances in Telangana.",
+        "eligibility": "Proprietorships, Partnerships, Private Limited companies, or LLPs engaged in manufacturing or service sector.",
+        "fees": "100% FREE on official udyamregistration.gov.in portal.",
+        "processing_time": "Instant lifetime certificate generation with QR code.",
+        "uncertainty_note": "Beware of fake non-government domains that charge money for registration.",
         "official_url": "https://udyamregistration.gov.in/",
         "portal_name": "Official Udyam MSME Portal & TS-iPASS",
         "is_verified": True,
@@ -309,6 +445,15 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "PAN & GST Validation", "description": "System validates PAN and investment details with Income Tax database."},
             {"step": 5, "title": "Download Udyam Registration Certificate", "description": "Instant generation of lifetime Udyam Registration Certificate with QR Code."}
         ],
+        "form_schema": {
+            "form_name": "Udyam MSME Registration Form",
+            "fields": [
+                {"field_id": "aadhaar_number", "label": "Proprietor / Managing Partner Aadhaar", "required": True, "type": "string", "example": "9876 5432 1012"},
+                {"field_id": "enterprise_name", "label": "Name of Enterprise / Business", "required": True, "type": "string", "example": "Cyberabad Tech Solutions"},
+                {"field_id": "type_of_organization", "label": "Type of Organization", "required": True, "type": "select", "options": ["Proprietorship", "Partnership", "Private Limited", "LLP"]},
+                {"field_id": "pan_number", "label": "PAN Number", "required": True, "type": "string", "example": "ABCDE1234F"}
+            ]
+        },
         "verification_notes": "Udyam Registration is 100% free of charge on udyamregistration.gov.in. Beware of private fake portals charging fees."
     },
     "itr_filing": {
@@ -319,6 +464,10 @@ SERVICES_DATABASE = {
         "jurisdiction_label": "Central Government (Income Tax Department)",
         "icon": "📊",
         "description": "File annual Income Tax Return (ITR-1, ITR-2, ITR-4), check tax refund status, or link PAN with Aadhaar.",
+        "eligibility": "Individuals with annual income exceeding basic exemption limit (₹2.5L / ₹3L / ₹7L under new regime) or mandatory filers.",
+        "fees": "FREE self-filing on official incometax.gov.in portal.",
+        "processing_time": "15-45 days following Aadhaar OTP e-verification for tax refund processing.",
+        "uncertainty_note": "Delayed e-verification beyond 30 days renders the ITR invalid.",
         "official_url": "https://www.incometax.gov.in/iec/foportal/",
         "portal_name": "Official Income Tax e-Filing Portal",
         "is_verified": True,
@@ -336,6 +485,15 @@ SERVICES_DATABASE = {
             {"step": 4, "title": "Submit & e-Verify via Aadhaar OTP", "description": "Complete e-Verification within 30 days using Aadhaar OTP or Net Banking to complete filing."},
             {"step": 5, "title": "Track Refund Status", "description": "Track processing and tax refund credit directly on portal dashboard."}
         ],
+        "form_schema": {
+            "form_name": "Income Tax Return (ITR-1 Sahaj) Form",
+            "fields": [
+                {"field_id": "pan_number", "label": "PAN Number", "required": True, "type": "string", "example": "ABCDE1234F"},
+                {"field_id": "assessment_year", "label": "Assessment Year", "required": True, "type": "string", "example": "AY 2024-25"},
+                {"field_id": "gross_salary", "label": "Gross Salary Income (₹)", "required": True, "type": "number", "example": "850000"},
+                {"field_id": "tds_deducted", "label": "TDS Deducted as per 26AS (₹)", "required": True, "type": "number", "example": "45000"}
+            ]
+        },
         "verification_notes": "Verified against Income Tax Department rules. e-Verification within 30 days is mandatory for ITR processing."
     }
 }
@@ -345,29 +503,6 @@ SERVICES_DATABASE = {
 JURISDICTION_RULES = {
     "telangana_keywords": ["telangana", "hyderabad", "ghmc", "meeseva", "cyberabad", "secunderabad", "warangal", "cdma", "ts", "epass ts", "ts-ipass"],
     "central_keywords": ["passport", "aadhaar", "pan", "income tax", "pancard", "railway", "irctc", "passport seva", "uidai", "epfo", "voter", "udyam", "itr"]
-}
-
-
-# Notice Parsing Helper Template
-NOTICE_PARSER_TEMPLATE = {
-    "supported_notices": ["Tax Notice", "RTO Notice", "Municipal Property Tax Demand", "Aadhaar Correction Notice", "Passport Verification Query"],
-    "disclaimer": "This explanation is informational only. Always verify official requirements against the issuing authority."
-}
-
-
-# "Do It For Me" Automation Limits Template
-DO_IT_FOR_ME_RULES = {
-    "internal_safe_actions": [
-        "Organize document checklist",
-        "Prepare draft form-field responses",
-        "Generate step-by-step submission plan",
-        "Identify exact official government portal URL"
-    ],
-    "external_portal_restrictions": [
-        "Cannot submit applications directly on external portal",
-        "Cannot bypass OTP, CAPTCHA, or password controls",
-        "Cannot access private government accounts without authorized user login"
-    ]
 }
 
 
