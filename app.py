@@ -167,8 +167,10 @@ user_message = st.chat_input(
     "Tell NextStep AI what you need help with..."
 )
 
-if user_message:
 
+            if user_message:
+
+    # Add user's message
     st.session_state.messages.append(
         {
             "role": "user",
@@ -176,11 +178,20 @@ if user_message:
         }
     )
 
+    # Display user's message
     with st.chat_message("user"):
         st.write(user_message)
 
+    # Temporary AI response
     with st.chat_message("assistant"):
         st.write(
             "I'm understanding your request and "
             "figuring out the right next step..."
         )
+
+    # Save conversation
+    conversation_name = user_message[:40]
+
+    st.session_state.conversations[conversation_name] = (
+        st.session_state.messages.copy()
+    )
