@@ -51,7 +51,30 @@ IMPORTANT BEHAVIOR:
 12. Keep responses friendly, clear, professional, and easy to understand.
 13. Always guide the citizen toward their NEXT STEP.
 """
+def ask_nextstep_ai(user_message):
 
+    prompt = f"""
+{NEXTSTEP_SYSTEM_INSTRUCTION}
+
+Citizen's message:
+{user_message}
+
+Respond as NextStep AI and guide the citizen toward their next step.
+"""
+
+    try:
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=prompt
+        )
+
+        if response and response.text:
+            return response.text.strip()
+
+        return "I'm sorry, I couldn't generate a response right now."
+
+    except Exception:
+        return "I'm temporarily unable to connect to the AI service. Please try again."
 # =========================================================
 # SESSION STATE
 # =========================================================
