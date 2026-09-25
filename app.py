@@ -427,27 +427,26 @@ for idx, message in enumerate(st.session_state.chat_history):
 
 
 # ============================================================
-# QUICK REPLY BUTTONS BAR
+# QUICK ACTION BUTTONS BAR
 # ============================================================
 
 st.markdown("")
-st.caption("💡 Quick Follow-Up Replies:")
-q_cols = st.columns(5)
+st.caption("💡 Quick Assistant Actions:")
+q_cols = st.columns(4)
 with q_cols[0]:
-    if st.button("💬 Show documents", use_container_width=True):
-        st.session_state.pending_prompt = "Show documents"
+    if st.button("📋 Show documents", use_container_width=True):
+        st.session_state.pending_prompt = "Show required documents"
 with q_cols[1]:
-    if st.button("💬 What next?", use_container_width=True):
+    if st.button("🗺️ What should I do next?", use_container_width=True):
         st.session_state.pending_prompt = "What should I do next?"
 with q_cols[2]:
-    if st.button("💬 Yes", use_container_width=True):
-        st.session_state.pending_prompt = "Yes, please provide more details."
+    if st.button("🔍 Explain this", use_container_width=True):
+        st.session_state.pending_prompt = "Explain this service process in detail."
 with q_cols[3]:
-    if st.button("💬 No", use_container_width=True):
-        st.session_state.pending_prompt = "No, I need help with another service."
-with q_cols[4]:
-    if st.button("💬 I don't know", use_container_width=True):
-        st.session_state.pending_prompt = "I don't know which government service handles this."
+    if st.button("🔄 Start over", use_container_width=True):
+        st.session_state.chat_history = []
+        st.session_state.pending_prompt = None
+        st.rerun()
 
 
 # ============================================================
