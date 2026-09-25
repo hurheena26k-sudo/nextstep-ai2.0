@@ -1,9 +1,5 @@
 import streamlit as st
-
-
-# =========================================================
-# PAGE SETTINGS
-# =========================================================
+from google import genai
 
 st.set_page_config(
     page_title="NextStep AI",
@@ -11,6 +7,12 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+client = genai.Client(
+    api_key=st.secrets["GEMINI_API_KEY"]
+)
+
+MODEL_NAME = "gemini-3.8-flash"
 
 
 # =========================================================
