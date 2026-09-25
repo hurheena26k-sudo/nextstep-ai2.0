@@ -16,7 +16,7 @@ st.set_page_config(
 
 
 # ============================================================
-# GEMINI
+# GEMINI CONFIG
 # ============================================================
 
 MODEL_NAME = "gemini-3.8-flash"
@@ -27,86 +27,58 @@ client = genai.Client(
 
 
 # ============================================================
-# NEXTSTEP AI INSTRUCTIONS
+# NEXTSTEP AI SYSTEM INSTRUCTION
 # ============================================================
 
 NEXTSTEP_SYSTEM_INSTRUCTION = """
 You are NextStep AI, an intelligent public-service assistant.
 
-Your job is to help citizens understand what government service
-they may need and guide them toward the correct next step.
+Your purpose is to help citizens understand government services
+and guide them toward the correct next step.
 
-You must NOT behave like a simple question-answer chatbot.
+IMPORTANT WORKFLOW:
 
-Your workflow is:
+1. Understand what the citizen wants.
 
-1. Understand what the citizen is trying to accomplish.
-
-2. If the citizen has not provided enough information, ASK A
-   CLEAR CLARIFICATION QUESTION before giving a final process.
+2. If important information is missing, ASK A CLARIFICATION
+   QUESTION before giving the complete procedure.
 
 3. Do not guess important information.
 
-4. Once enough information is available, explain the process
-   using simple numbered steps.
+4. Once enough information is available, give clear,
+   numbered, step-by-step instructions.
 
-5. Explain only the documents that are relevant to the service
-   when you have reliable information.
+5. Mention relevant documents only when appropriate.
 
-6. If location matters, ask for the state/city/country.
+6. If the procedure depends on the citizen's state, city,
+   country, age, or other important information, ask for it.
 
-7. Never invent:
-   - government rules
-   - fees
-   - deadlines
-   - eligibility requirements
-   - documents
-   - official websites
-   - processing times
+7. Never invent government rules, fees, deadlines,
+   eligibility requirements, documents, or procedures.
 
-8. If you are uncertain about something, clearly say that it
-   needs to be verified from the official government source.
+8. If something needs verification, tell the citizen to
+   verify it on the official government website.
 
-9. Do not restrict yourself to only a few services.
+9. You can help with many government services. Do not restrict
+   yourself to only a fixed list.
 
-10. You can help with many public services including:
-    - Birth certificates
-    - Death certificates
-    - Income certificates
-    - Caste certificates
-    - Residence/domicile certificates
-    - Government schemes
-    - Scholarships
-    - Licences
-    - Permits
-    - Public grievances
-    - Municipal services
-    - Property services
-    - Water services
-    - Education services
-    - Welfare services
-    - Aadhaar-related guidance
-    - Passport-related guidance
-    - Voter-related guidance
-    - Driving licence-related guidance
-    - Other legitimate government services
+10. Your answer should be easy for an ordinary citizen to
+    understand.
 
-RESPONSE BEHAVIOR:
+WHEN CLARIFICATION IS NEEDED:
 
-If information is missing:
+Do not give a long generic answer.
 
-Say what you understand and ask the most useful clarification
-question.
+Instead, briefly explain what you understood and ask the
+most useful question.
 
 Example:
 
-"I can help you with that. Which state are you applying in?"
+"I can help with that. Which state are you applying in?"
 
-Do NOT provide a long generic procedure before the clarification.
+WHEN ENOUGH INFORMATION IS AVAILABLE:
 
-If enough information is available:
-
-Give the answer in this structure:
+Use this structure:
 
 What I understood:
 [short explanation]
@@ -124,158 +96,118 @@ Documents:
 Important:
 [only if necessary]
 
-Keep answers:
-- Clear
-- Friendly
-- Professional
-- Beginner-friendly
-- Short enough to understand easily
+Keep responses friendly, professional, concise and practical.
 
-Your purpose is to help the citizen reach the correct NEXT STEP.
+Your goal is to guide the citizen toward their NEXT STEP.
 """
 
 
 # ============================================================
-# OFFICIAL SERVICE LINKS
+# SERVICE DATABASE
 # ============================================================
 #
-# These are official government sources.
-# If a specific direct service link is not verified,
-# use the official government service directory instead.
+# These links are based on official Telangana government
+# service directories and official government portals.
 # ============================================================
 
-SERVICE_LINKS = {
+SERVICES = {
 
-    "birth_certificate": {
+    # --------------------------------------------------------
+    # TELANGANA BASIC CERTIFICATES
+    # --------------------------------------------------------
+
+    "birth": {
         "name": "Birth Certificate",
         "keywords": [
             "birth certificate",
             "birth registration",
-            "register birth"
+            "register birth",
+            "birth record"
         ],
-        "url": (
-            "https://ts.meeseva.telangana.gov.in/"
-            "meeseva/downloadzip.htm?"
-            "filename=CDMAAPPLICATIONFORBIRTHCERTIFICATE.pdf"
-        ),
-        "description": "Official Telangana birth certificate application form."
+        "url": "https://ubdmis.telangana.gov.in/",
+        "source": "Telangana Birth & Death Registration"
     },
 
-    "death_certificate": {
+    "death": {
         "name": "Death Certificate",
         "keywords": [
             "death certificate",
             "death registration",
-            "register death"
+            "register death",
+            "death record"
         ],
-        "url": (
-            "https://ts.meeseva.telangana.gov.in/"
-            "meeseva/downloadzip.htm?"
-            "filename=CDMAAPPLICATIONFORDEATHCERTIFICATE.pdf"
-        ),
-        "description": "Official Telangana death registration application form."
+        "url": "https://ubdmis.telangana.gov.in/",
+        "source": "Telangana Birth & Death Registration"
     },
 
-    "income_certificate": {
+    "income": {
         "name": "Income Certificate",
         "keywords": [
             "income certificate",
             "income proof",
             "income certificate application"
         ],
-        "url": (
-            "https://ts.meeseva.telangana.gov.in/"
-            "meeseva/downloadzip.htm?"
-            "filename=IncomeGeneralApplicationForm.pdf"
-        ),
-        "description": "Official Telangana income certificate application form."
+        "url": "https://ts.meeseva.telangana.gov.in/",
+        "source": "Telangana MeeSeva"
     },
 
-    "driving_license": {
-        "name": "Driving Licence",
-        "keywords": [
-            "driving licence",
-            "driving license",
-            "learner licence",
-            "learner license",
-            "dl application"
-        ],
-        "url": (
-            "https://transport.telangana.gov.in/"
-            "html/driving-licence.html"
-        ),
-        "description": "Official Telangana Transport Department driving licence service."
-    },
-
-    "passport": {
-        "name": "Passport",
-        "keywords": [
-            "passport",
-            "new passport",
-            "passport application",
-            "passport renewal",
-            "passport reissue"
-        ],
-        "url": "https://passportindia.gov.in/",
-        "description": "Official Passport Seva portal."
-    },
-
-    "voter_registration": {
-        "name": "Voter Registration",
-        "keywords": [
-            "voter",
-            "voter registration",
-            "voter id",
-            "electoral roll",
-            "electoral registration"
-        ],
-        "url": (
-            "https://www.india.gov.in/services/"
-        ),
-        "description": "Official Government of India services portal."
-    },
-
-    "scholarship": {
-        "name": "Telangana Scholarship",
-        "keywords": [
-            "scholarship",
-            "student scholarship",
-            "pre matric scholarship",
-            "post matric scholarship"
-        ],
-        "url": "https://telanganaepass.cgg.gov.in/",
-        "description": "Official Telangana ePASS scholarship portal."
-    },
-
-    "caste_certificate": {
+    "caste": {
         "name": "Caste Certificate",
         "keywords": [
             "caste certificate",
             "community certificate",
             "sc certificate",
             "st certificate",
-            "bc certificate"
+            "bc certificate",
+            "obc certificate"
         ],
-        "url": (
-            "https://www.telangana.gov.in/"
-            "services/state-services/"
-        ),
-        "description": "Official Telangana State Services portal."
+        "url": "https://ts.meeseva.telangana.gov.in/",
+        "source": "Telangana MeeSeva"
     },
 
-    "residence_certificate": {
+    "residence": {
         "name": "Residence / Domicile Certificate",
         "keywords": [
             "residence certificate",
             "domicile certificate",
             "nativity certificate"
         ],
-        "url": (
-            "https://www.telangana.gov.in/"
-            "services/state-services/"
-        ),
-        "description": "Official Telangana State Services portal."
+        "url": "https://ts.meeseva.telangana.gov.in/",
+        "source": "Telangana MeeSeva"
     },
+
+    "integrated": {
+        "name": "Integrated Certificate",
+        "keywords": [
+            "integrated certificate",
+            "caste nativity dob",
+            "community nativity dob"
+        ],
+        "url": "https://ts.meeseva.telangana.gov.in/",
+        "source": "Telangana MeeSeva"
+    },
+
+    # --------------------------------------------------------
+    # TELANGANA EDUCATION / SCHOLARSHIPS
+    # --------------------------------------------------------
+
+    "scholarship": {
+        "name": "Telangana Scholarship",
+        "keywords": [
+            "scholarship",
+            "student scholarship",
+            "post matric scholarship",
+            "pre matric scholarship",
+            "epass",
+            "e pass"
+        ],
+        "url": "https://telanganaepass.cgg.gov.in/",
+        "source": "Telangana ePASS"
+    },
+
+    # --------------------------------------------------------
+    # TELANGANA MUNICIPAL SERVICES
+    # --------------------------------------------------------
 
     "property_tax": {
         "name": "Property Tax",
@@ -284,56 +216,240 @@ SERVICE_LINKS = {
             "house tax",
             "property payment"
         ],
-        "url": (
-            "https://www.telangana.gov.in/"
-            "services/state-services/"
-        ),
-        "description": "Official Telangana State Services portal."
+        "url": "https://emunicipal.telangana.gov.in/",
+        "source": "Telangana Municipal Administration"
     },
 
-    "water_connection": {
+    "water": {
         "name": "Water Connection",
         "keywords": [
             "water connection",
             "new water connection",
-            "water supply"
+            "water supply",
+            "water connection application"
         ],
-        "url": (
-            "https://www.telangana.gov.in/"
-            "services/state-services/"
-        ),
-        "description": "Official Telangana State Services portal."
+        "url": "https://emunicipal.telangana.gov.in/",
+        "source": "Telangana Municipal Administration"
     },
 
-    "general": {
-        "name": "Government Services Directory",
-        "keywords": [],
-        "url": "https://www.india.gov.in/services",
-        "description": "Official Government of India services directory."
+    "building": {
+        "name": "Building / Development Permission",
+        "keywords": [
+            "building permission",
+            "building permit",
+            "construction permission",
+            "development permit"
+        ],
+        "url": "https://emunicipal.telangana.gov.in/",
+        "source": "Telangana Municipal Administration"
+    },
+
+    # --------------------------------------------------------
+    # TELANGANA VOTER SERVICES
+    # --------------------------------------------------------
+
+    "voter": {
+        "name": "Voter Services",
+        "keywords": [
+            "voter",
+            "voter id",
+            "voter registration",
+            "electoral roll",
+            "electoral registration",
+            "voter card"
+        ],
+        "url": "https://ceotelangana.nic.in/",
+        "source": "Chief Electoral Officer, Telangana"
+    },
+
+    # --------------------------------------------------------
+    # DRIVING LICENCE
+    # --------------------------------------------------------
+
+    "driving": {
+        "name": "Driving Licence",
+        "keywords": [
+            "driving licence",
+            "driving license",
+            "learner licence",
+            "learner license",
+            "driving test",
+            "dl application"
+        ],
+        "url": "https://transport.telangana.gov.in/html/driving-licence.html",
+        "source": "Telangana Transport Department"
+    },
+
+    # --------------------------------------------------------
+    # PASSPORT
+    # --------------------------------------------------------
+
+    "passport": {
+        "name": "Passport",
+        "keywords": [
+            "passport",
+            "new passport",
+            "passport application",
+            "passport renewal",
+            "passport reissue",
+            "passport appointment"
+        ],
+        "url": "https://www.passportindia.gov.in/psp",
+        "source": "Passport Seva"
+    },
+
+    # --------------------------------------------------------
+    # AADHAAR
+    # --------------------------------------------------------
+
+    "aadhaar": {
+        "name": "Aadhaar Services",
+        "keywords": [
+            "aadhaar",
+            "aadhar",
+            "aadhaar card",
+            "aadhar card",
+            "aadhaar update",
+            "aadhaar enrolment",
+            "aadhaar enrollment"
+        ],
+        "url": "https://uidai.gov.in/en/",
+        "source": "UIDAI"
+    },
+
+    # --------------------------------------------------------
+    # PAN
+    # --------------------------------------------------------
+
+    "pan": {
+        "name": "PAN Services",
+        "keywords": [
+            "pan card",
+            "pan application",
+            "pan status",
+            "pan correction",
+            "tan"
+        ],
+        "url": "https://www.incometax.gov.in/",
+        "source": "Income Tax Department"
+    },
+
+    # --------------------------------------------------------
+    # RAILWAYS
+    # --------------------------------------------------------
+
+    "railway": {
+        "name": "Indian Railways",
+        "keywords": [
+            "railway",
+            "train ticket",
+            "train booking",
+            "irctc",
+            "rail ticket"
+        ],
+        "url": "https://www.irctc.co.in/",
+        "source": "IRCTC"
+    },
+
+    # --------------------------------------------------------
+    # MGNREGA
+    # --------------------------------------------------------
+
+    "mgnrega": {
+        "name": "MGNREGA",
+        "keywords": [
+            "mgnrega",
+            "nrega",
+            "employment guarantee",
+            "rural employment"
+        ],
+        "url": "https://nrega.telangana.gov.in/",
+        "source": "Telangana MGNREGA"
+    },
+
+    # --------------------------------------------------------
+    # POLICE
+    # --------------------------------------------------------
+
+    "police": {
+        "name": "Telangana Police",
+        "keywords": [
+            "police",
+            "police complaint",
+            "fir",
+            "missing person",
+            "police verification"
+        ],
+        "url": "https://www.tspolice.gov.in/",
+        "source": "Telangana Police"
+    },
+
+    # --------------------------------------------------------
+    # GHMC
+    # --------------------------------------------------------
+
+    "ghmc": {
+        "name": "Greater Hyderabad Municipal Corporation",
+        "keywords": [
+            "ghmc",
+            "hyderabad municipal",
+            "hyderabad property",
+            "hyderabad water",
+            "hyderabad birth certificate",
+            "hyderabad death certificate"
+        ],
+        "url": "https://www.ghmc.gov.in/",
+        "source": "Greater Hyderabad Municipal Corporation"
+    },
+
+    # --------------------------------------------------------
+    # RATION / FOOD
+    # --------------------------------------------------------
+
+    "ration": {
+        "name": "Telangana Civil Supplies",
+        "keywords": [
+            "ration card",
+            "food security card",
+            "food card",
+            "civil supplies"
+        ],
+        "url": "https://civilsupplies.telangana.gov.in/",
+        "source": "Telangana Civil Supplies"
+    },
+
+    # --------------------------------------------------------
+    # LAND
+    # --------------------------------------------------------
+
+    "land": {
+        "name": "Telangana Land Services",
+        "keywords": [
+            "land records",
+            "land registration",
+            "land record",
+            "bhubharati",
+            "bhu bharati",
+            "mutation",
+            "property registration"
+        ],
+        "url": "https://bhubharati.telangana.gov.in/",
+        "source": "Telangana Bhu Bharati"
     }
 }
 
 
 # ============================================================
-# OFFICIAL GENERAL PORTALS
+# GENERAL OFFICIAL PORTALS
 # ============================================================
 
 OFFICIAL_PORTALS = {
-    "Telangana MeeSeva": (
-        "https://ts.meeseva.telangana.gov.in/"
-    ),
-    "Telangana State Services": (
-        "https://www.telangana.gov.in/services/state-services/"
-    ),
-    "Telangana Public Utility Forms": (
-        "https://www.telangana.gov.in/services/public-utility-forms/"
-    ),
-    "India Government Services": (
-        "https://www.india.gov.in/services"
-    ),
-    "National Government Services Portal": (
-        "https://services.india.gov.in/"
-    )
+    "Telangana MeeSeva": "https://ts.meeseva.telangana.gov.in/",
+    "Telangana State Services": "https://www.telangana.gov.in/services/state-services/",
+    "Telangana Public Utility Forms": "https://www.telangana.gov.in/services/public-utility-forms/",
+    "Telangana State Portal": "https://www.telangana.gov.in/",
+    "Government of India Services": "https://www.india.gov.in/services",
+    "National Government Services Portal": "https://services.india.gov.in/"
 }
 
 
@@ -352,26 +468,52 @@ if "current_conversation" not in st.session_state:
 
 
 # ============================================================
-# FIND SERVICE LINK
+# FIND RELEVANT SERVICE
 # ============================================================
 
-def find_service_link(user_message):
+def find_service(user_message):
 
     text = user_message.lower()
 
-    for service_key, service in SERVICE_LINKS.items():
+    # Check longer/more specific services first
+    ordered_services = [
+        "passport",
+        "aadhaar",
+        "pan",
+        "railway",
+        "mgnrega",
+        "scholarship",
+        "driving",
+        "birth",
+        "death",
+        "income",
+        "caste",
+        "residence",
+        "integrated",
+        "property_tax",
+        "water",
+        "building",
+        "voter",
+        "police",
+        "ghmc",
+        "ration",
+        "land"
+    ]
+
+    for service_key in ordered_services:
+
+        service = SERVICES[service_key]
 
         for keyword in service["keywords"]:
 
             if keyword in text:
-
                 return service
 
-    return SERVICE_LINKS["general"]
+    return None
 
 
 # ============================================================
-# GEMINI FUNCTION
+# ASK GEMINI
 # ============================================================
 
 def ask_nextstep_ai(user_message, conversation_history):
@@ -430,7 +572,6 @@ def ask_nextstep_ai(user_message, conversation_history):
             )
 
             if response.text:
-
                 return response.text
 
         except Exception as error:
@@ -546,19 +687,19 @@ with st.sidebar:
 
     st.divider()
 
-    st.subheader("🌐 Official Government Portals")
+    st.subheader("🌐 Official Portals")
 
-    for name, url in OFFICIAL_PORTALS.items():
+    for portal_name, portal_url in OFFICIAL_PORTALS.items():
 
         st.link_button(
-            name,
-            url,
+            portal_name,
+            portal_url,
             use_container_width=True
         )
 
 
 # ============================================================
-# MAIN APP
+# MAIN HEADER
 # ============================================================
 
 st.title("🤖 NextStep AI")
@@ -571,7 +712,7 @@ st.divider()
 
 
 # ============================================================
-# WELCOME SCREEN
+# WELCOME
 # ============================================================
 
 if not st.session_state.messages:
@@ -593,7 +734,7 @@ if not st.session_state.messages:
 
 
 # ============================================================
-# DISPLAY CHAT HISTORY
+# DISPLAY CHAT
 # ============================================================
 
 for message in st.session_state.messages:
@@ -615,7 +756,7 @@ user_input = st.chat_input(
 if user_input:
 
     # --------------------------------------------------------
-    # SHOW USER MESSAGE
+    # USER MESSAGE
     # --------------------------------------------------------
 
     with st.chat_message("user"):
@@ -654,28 +795,66 @@ if user_input:
     )
 
     # --------------------------------------------------------
-    # OFFICIAL SERVICE LINK
+    # SERVICE LINK
     # --------------------------------------------------------
 
-    service = find_service_link(user_input)
+    service = find_service(user_input)
 
-    st.divider()
+    if service:
 
-    st.subheader(
-        f"🔗 Official {service['name']} Source"
-    )
+        st.divider()
 
-    st.caption(
-        service["description"]
-    )
+        st.subheader(
+            f"🔗 Official {service['name']} Service"
+        )
 
-    st.link_button(
-        f"Open {service['name']} Service",
-        service["url"]
-    )
+        st.caption(
+            f"Source: {service['source']}"
+        )
+
+        st.link_button(
+            f"Open {service['name']} Service",
+            service["url"]
+        )
+
+    else:
+
+        st.divider()
+
+        st.subheader(
+            "🔗 Find the Official Government Service"
+        )
+
+        st.caption(
+            "I couldn't confidently identify a specific "
+            "service portal, so I'm showing the official "
+            "government service directories instead."
+        )
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            st.link_button(
+                "Telangana State Services",
+                OFFICIAL_PORTALS[
+                    "Telangana State Services"
+                ],
+                use_container_width=True
+            )
+
+        with col2:
+
+            st.link_button(
+                "Telangana MeeSeva",
+                OFFICIAL_PORTALS[
+                    "Telangana MeeSeva"
+                ],
+                use_container_width=True
+            )
 
     # --------------------------------------------------------
-    # SAVE CONVERSATION
+    # CONVERSATION TITLE
     # --------------------------------------------------------
 
     if (
