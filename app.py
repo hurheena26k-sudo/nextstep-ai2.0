@@ -1,5 +1,10 @@
 import streamlit as st
 
+
+# =========================================================
+# PAGE CONFIGURATION
+# =========================================================
+
 st.set_page_config(
     page_title="NextStep AI",
     page_icon="🧭",
@@ -7,9 +12,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# -----------------------------
+
+# =========================================================
 # SESSION STATE
-# -----------------------------
+# =========================================================
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -21,18 +27,18 @@ if "current_conversation" not in st.session_state:
     st.session_state.current_conversation = "New Conversation"
 
 
-# -----------------------------
+# =========================================================
 # SIDEBAR
-# -----------------------------
+# =========================================================
 
 with st.sidebar:
 
     st.markdown("## 🧭 NextStep AI")
-
-    st.caption("Your AI guide for public services")
+    st.caption("Your intelligent guide to public services")
 
     st.divider()
 
+    # New conversation button
     if st.button(
         "＋ New Conversation",
         use_container_width=True
@@ -43,26 +49,33 @@ with st.sidebar:
 
     st.divider()
 
-    st.markdown("### Previous Conversations")
+    st.markdown("### 💬 Previous Conversations")
 
     if not st.session_state.conversations:
+
         st.caption("No previous conversations yet.")
 
     else:
-        for conversation_name in st.session_state.conversations:
+
+        for conversation_name in list(
+            st.session_state.conversations.keys()
+        ):
 
             col1, col2 = st.columns([4, 1])
 
+            # Open conversation
             with col1:
+
                 if st.button(
                     conversation_name,
                     key=f"open_{conversation_name}",
                     use_container_width=True
                 ):
+
                     st.session_state.messages = (
                         st.session_state.conversations[
                             conversation_name
-                        ]
+                        ].copy()
                     )
 
                     st.session_state.current_conversation = (
@@ -71,31 +84,55 @@ with st.sidebar:
 
                     st.rerun()
 
+            # Delete conversation
             with col2:
+
                 if st.button(
                     "🗑️",
                     key=f"delete_{conversation_name}"
                 ):
+
                     del st.session_state.conversations[
                         conversation_name
                     ]
 
                     st.session_state.messages = []
 
+                    st.session_state.current_conversation = (
+                        "New Conversation"
+                    )
+
                     st.rerun()
 
 
-# -----------------------------
-# MAIN INTERFACE
-# -----------------------------
+# =========================================================
+# MAIN HEADER
+# =========================================================
 
 st.markdown(
     """
-    <div style="text-align:center; padding-top:40px;">
-        <h1>🧭 NextStep AI</h1>
-        <p style="font-size:20px;">
+    <div style="
+        text-align:center;
+        padding-top:25px;
+        padding-bottom:10px;
+    ">
+
+        <div style="font-size:65px;">🧭</div>
+
+        <h1 style="
+            font-size:42px;
+            margin-bottom:5px;
+        ">
+            NextStep AI
+        </h1>
+
+        <p style="
+            font-size:19px;
+            color:#666;
+        ">
             Your intelligent guide to public services
         </p>
+
     </div>
     """,
     unsafe_allow_html=True
@@ -104,73 +141,78 @@ st.markdown(
 st.divider()
 
 
-# -----------------------------
-# AI INTRODUCTION
-# -----------------------------
+# =========================================================
+# WELCOME SCREEN
+# =========================================================
+
 if not st.session_state.messages:
 
     st.markdown(
         """
-        <div style="text-align:center; padding:60px 20px 30px 20px;">
-            <div style="font-size:70px;">🧭</div>
+        <div style="
+            text-align:center;
+            padding:35px 20px 20px 20px;
+        ">
 
-            <h1 style="font-size:42px;">
-                NextStep AI
-            </h1>
+            <h2>
+                👋 Welcome to NextStep AI
+            </h2>
 
-            <p style="font-size:21px;">
-                Your intelligent guide to public services
+            <p style="font-size:18px;">
+                I can help you understand public services,
+                certificates, applications, government schemes,
+                licenses, permits, and more.
             </p>
 
-            <p style="font-size:17px;">
-                I can help you understand applications,
-                certificates, government services, and more.
+            <p style="
+                font-size:16px;
+                color:#666;
+            ">
+                You don't need to know the exact service name.
+                Just tell me what you need.
             </p>
+
         </div>
         """,
         unsafe_allow_html=True
     )
 
     st.info(
-        "👋 Hi! What do you need help with today?"
-    )
-
-    st.markdown(
-        """
-        <div style="text-align:center; padding:30px;">
-            <h2>What do you need help with?</h2>
-            <p>
-                Tell me what you are trying to apply for,
-                understand, or solve.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True
+        "💡 Tell me what you are trying to apply for, "
+        "understand, or solve."
     )
 
 
-# -----------------------------
-# CHAT HISTORY
-# -----------------------------
+# =========================================================
+# DISPLAY CHAT HISTORY
+# =========================================================
 
 for message in st.session_state.messages:
 
     with st.chat_message(message["role"]):
+
         st.write(message["content"])
 
 
-# -----------------------------
+# =========================================================
 # USER INPUT
-# -----------------------------
+# =========================================================
 
 user_message = st.chat_input(
     "Tell NextStep AI what you need help with..."
 )
 
 
-            if user_message:
+# =========================================================
+# PROCESS USER MESSAGE
+# =========================================================
 
-    # Add user's message
+if user_message:
+
+    # ---------------------------------------------
+    # Save user message
+    # ---------------------------------------------
+
     st.session_state.messages.append(
         {
             "role": "user",
@@ -178,20 +220,55 @@ user_message = st.chat_input(
         }
     )
 
-    # Display user's message
+    # ---------------------------------------------
+    # Display user message
+    # ---------------------------------------------
+
     with st.chat_message("user"):
+
         st.write(user_message)
 
+
+    # ---------------------------------------------
     # Temporary AI response
+    # ---------------------------------------------
+
     with st.chat_message("assistant"):
-        st.write(
+
+        response = (
             "I'm understanding your request and "
             "figuring out the right next step..."
         )
 
-    # Save conversation
+        st.write(response)
+
+
+    # ---------------------------------------------
+    # Save AI response
+    # ---------------------------------------------
+
+    st.session_state.messages.append(
+        {
+            "role": "assistant",
+            "content": response
+        }
+    )
+
+
+    # ---------------------------------------------
+    # Create conversation name
+    # ---------------------------------------------
+
     conversation_name = user_message[:40]
 
-    st.session_state.conversations[conversation_name] = (
-        st.session_state.messages.copy()
-    )
+    if not conversation_name:
+        conversation_name = "New Conversation"
+
+
+    # ---------------------------------------------
+    # Save conversation
+    # ---------------------------------------------
+
+    st.session_state.conversations[
+        conversation_name
+    ] = st.session_state.messages.copy()
