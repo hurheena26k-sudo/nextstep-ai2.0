@@ -34,12 +34,10 @@ if "current_conversation" not in st.session_state:
 with st.sidebar:
 
     st.markdown("## 🧭 NextStep AI")
-
     st.caption("Your intelligent guide to public services")
 
     st.divider()
 
-    # New conversation
     if st.button(
         "＋ New Conversation",
         use_container_width=True
@@ -53,7 +51,6 @@ with st.sidebar:
     st.markdown("### 💬 Previous Conversations")
 
     if not st.session_state.conversations:
-
         st.caption("No previous conversations yet.")
 
     else:
@@ -64,7 +61,6 @@ with st.sidebar:
 
             col1, col2 = st.columns([4, 1])
 
-            # Open conversation
             with col1:
 
                 if st.button(
@@ -85,7 +81,6 @@ with st.sidebar:
 
                     st.rerun()
 
-            # Delete conversation
             with col2:
 
                 if st.button(
@@ -187,13 +182,12 @@ if not st.session_state.messages:
 
 
 # =========================================================
-# DISPLAY CHAT HISTORY
+# CHAT HISTORY
 # =========================================================
 
 for message in st.session_state.messages:
 
     with st.chat_message(message["role"]):
-
         st.write(message["content"])
 
 
@@ -212,7 +206,7 @@ user_message = st.chat_input(
 
 if user_message:
 
-    # Save user's message
+    # Save user message
     st.session_state.messages.append(
         {
             "role": "user",
@@ -220,7 +214,7 @@ if user_message:
         }
     )
 
-    # Display user's message
+    # Display user message
     with st.chat_message("user"):
         st.write(user_message)
 
@@ -242,22 +236,11 @@ if user_message:
         }
     )
 
-    # Create conversation name
+    # Conversation name
     conversation_name = user_message[:40].strip()
 
     if not conversation_name:
         conversation_name = "New Conversation"
-
-    # Avoid overwriting an existing conversation
-    original_name = conversation_name
-    counter = 2
-
-    while (
-        conversation_name in st.session_state.conversations
-        and conversation_name != st.session_state.current_conversation
-    ):
-        conversation_name = f"{original_name} ({counter})"
-        counter += 1
 
     # Save conversation
     st.session_state.conversations[
