@@ -13,7 +13,12 @@ client = genai.Client(
 )
 
 MODEL_NAME = "gemini-3.8-flash"
+response = client.models.generate_content(
+    model=MODEL_NAME,
+    contents="Reply with exactly: NextStep AI connection successful."
+)
 
+st.success(response.text)
 
 # =========================================================
 # SESSION STATE
