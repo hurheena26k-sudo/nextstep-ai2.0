@@ -107,8 +107,33 @@ st.divider()
 # -----------------------------
 # AI INTRODUCTION
 # -----------------------------
-
 if not st.session_state.messages:
+
+    st.markdown(
+        """
+        <div style="text-align:center; padding:60px 20px 30px 20px;">
+            <div style="font-size:70px;">🧭</div>
+
+            <h1 style="font-size:42px;">
+                NextStep AI
+            </h1>
+
+            <p style="font-size:21px;">
+                Your intelligent guide to public services
+            </p>
+
+            <p style="font-size:17px;">
+                I can help you understand applications,
+                certificates, government services, and more.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.info(
+        "👋 Hi! What do you need help with today?"
+    )
 
     st.markdown(
         """
